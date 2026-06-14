@@ -331,3 +331,48 @@ test('runAgent dispatches to an object-shaped adapter when capabilities are sati
   assert.equal(seenRequest.dangerouslySkipPermissions, true)
 })
 
+test('runAgent falls back to another compatible available provider when primary provider fails with eligible error', async () => {
+  const result = await runAgent({
+    workflow: 'w',
+    phase: 'Create',
+    label: 'l',
+    cwd,
+    prompt: 'go',
+  }, {
+    config: { defaultProvider: 'primary' },
+    loadAgent: false,
+    adapters: {
+      primary: {
+        capabilities: { structuredOutput: false, images: false, sandbox: false, skipPermissions: false },
+        run: async (request) => {
+          throw new BridgeError(ErrorCode.PROCESS_EXIT_NONZERO, 'Mock primary rate limit or crash', { recoverable: false })
+        },
+      },
+      fallback: {
+        capabilities: { structuredOutput: false, images: false, sandbox: false, skipPermissions: false },
+        run: async (request) => {
+          return {
+            ok: true,
+            runId: request.runId,
+            provider: 'fallback',
+            phase: request.phase,
+            label: request.label,
+            durationMs: 1,
+            attempts: 1,
+            structured: false,
+            text: 'fallback success text',
+            usage: {},
+            artifacts: [],
+            warnings: [],
+          }
+        },
+      },
+    },
+  })
+
+  assert.equal(result.ok, true)
+  assert.equal(result.provider, 'fallback')
+  assert.equal(result.text, 'fallback success text')
+  assert.ok(result.warnings.some((w) => w.includes("Fallback triggered from 'primary' to 'fallback'")))
+})
+

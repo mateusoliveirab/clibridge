@@ -61,12 +61,12 @@ export async function assertProviderCommandAvailable(provider: string, entry: Ad
   })
 }
 
-export async function selectOnlyAvailableProviderForDemand(
+export async function getAvailableProvidersForDemand(
   input: AgentInput,
   adapters: Record<string, AdapterEntry>,
-): Promise<string> {
+): Promise<string[]> {
   const required = requiredCapabilities(input)
-  const candidates = []
+  const candidates: string[] = []
 
   for (const [provider, entry] of Object.entries(adapters)) {
     const adapter = resolveAdapterEntry(entry)
@@ -74,6 +74,16 @@ export async function selectOnlyAvailableProviderForDemand(
     if (adapter.command && !(await isCommandAvailable(adapter.command))) continue
     candidates.push(provider)
   }
+
+  return candidates
+}
+
+export async function selectOnlyAvailableProviderForDemand(
+  input: AgentInput,
+  adapters: Record<string, AdapterEntry>,
+): Promise<string> {
+  const required = requiredCapabilities(input)
+  const candidates = await getAvailableProvidersForDemand(input, adapters)
 
   if (candidates.length === 1) return candidates[0]
 

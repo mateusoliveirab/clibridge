@@ -6,7 +6,7 @@ import { assemblePrompt } from '../claude/prompt-assembler.ts'
 import { assertStructuredOutput, assertValidSchema } from './schema-validation.ts'
 import { selectRoute } from './routing.ts'
 import { requiredCapabilities, resolveAdapterEntry } from '../adapters/contract.ts'
-import { assertProviderCommandAvailable, selectOnlyAvailableProviderForDemand } from '../adapters/availability.ts'
+import { assertProviderCommandAvailable, selectOnlyAvailableProviderForDemand, getAvailableProvidersForDemand } from '../adapters/availability.ts'
 import type { AdapterEntry, ProviderAdapter, RequiredCapability } from '../adapters/contract.ts'
 import { BridgeError, ErrorCode, errorEnvelope } from './errors.ts'
 import { DEFAULT_TIMEOUT_MS, DEFAULT_ENV_ALLOWLIST } from '../config/constants.ts'
@@ -93,6 +93,7 @@ export async function runAgent(input: AgentInput, options: RunAgentOptions = {})
     // Retry recoverable failures (timeout, non-zero exit, parse/schema misses)
     // up to maxRetries times. Non-recoverable errors fail immediately.
     const maxAttempts = request.maxRetries + 1
+    let executionError: unknown = null
     for (attempts = 1; ; attempts++) {
       try {
         const result = await adapter.run(request)
@@ -102,9 +103,74 @@ export async function runAgent(input: AgentInput, options: RunAgentOptions = {})
         return result?.ok ? { ...result, attempts } : result
       } catch (error) {
         const recoverable = error instanceof BridgeError && error.recoverable
-        if (!recoverable || attempts >= maxAttempts) throw error
+        if (!recoverable || attempts >= maxAttempts) {
+          executionError = error
+          break
+        }
       }
     }
+
+    // If execution failed, try fallback providers before throwing
+    if (executionError) {
+      const candidates = await getAvailableProvidersForDemand(input, adapters)
+      const fallbacks = candidates.filter((p) => p !== request.provider)
+
+      const eligibleCodes: string[] = [
+        ErrorCode.PROVIDER_UNAVAILABLE,
+        ErrorCode.TIMEOUT,
+        ErrorCode.PROCESS_EXIT_NONZERO,
+        ErrorCode.OUTPUT_PARSE_FAILED,
+        ErrorCode.RATE_LIMITED,
+        ErrorCode.UNKNOWN_PROVIDER_ERROR,
+      ]
+
+      const isEligibleForFallback = executionError instanceof BridgeError && eligibleCodes.includes(executionError.code)
+
+      if (isEligibleForFallback && fallbacks.length > 0) {
+        let lastError: any = executionError
+        for (const fallbackProvider of fallbacks) {
+          try {
+            const fallbackAdapterEntry = adapters[fallbackProvider]
+            const fallbackAdapter = resolveAdapterEntry(fallbackAdapterEntry)
+            const fallbackRequest = {
+              ...request,
+              provider: fallbackProvider,
+              model: undefined, // Let fallback use its default model
+            }
+
+            await assertProviderCommandAvailable(fallbackProvider, fallbackAdapterEntry)
+
+            const fMaxAttempts = fallbackRequest.maxRetries + 1
+            for (let fAttempts = 1; ; fAttempts++) {
+              try {
+                const result = await fallbackAdapter.run(fallbackRequest)
+                if (result?.ok && fallbackRequest.schema) {
+                  assertStructuredOutput(fallbackRequest.schema, result.data)
+                }
+                if (result?.ok) {
+                  result.warnings = result.warnings || []
+                  result.warnings.push(
+                    `Fallback triggered from '${request.provider}' to '${fallbackProvider}' due to error: ${(executionError as Error).message}`
+                  )
+                  return { ...result, attempts: attempts + fAttempts }
+                }
+                return result
+              } catch (fError) {
+                const recoverable = fError instanceof BridgeError && fError.recoverable
+                if (!recoverable || fAttempts >= fMaxAttempts) throw fError
+              }
+            }
+          } catch (fError) {
+            lastError = fError
+          }
+        }
+        throw lastError
+      } else {
+        throw executionError
+      }
+    }
+
+    throw executionError || new Error('Unexpected end of agent execution loop')
   } catch (error) {
     return errorEnvelope(error, request, {
       durationMs: Date.now() - startedAt,
