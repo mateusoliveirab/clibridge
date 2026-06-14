@@ -5,8 +5,15 @@ import { defaultAdapters } from '../../src/adapters/registry.ts'
 import { resolveRole } from '../../src/workflows/roles.ts'
 import { newRunId, startRun, phaseStart, phaseEnd, endRun } from '../../src/workflows/run-state.ts'
 
-const dryRun = process.argv.includes('--dry-run')
-const taskPrompt = process.argv[process.argv.length - 1]
+const args = process.argv.slice(2)
+const dryRun = args.includes('--dry-run')
+const taskPromptIndex = args.findLastIndex(a => !a.startsWith('--'))
+const taskPrompt = taskPromptIndex >= 0 ? args[taskPromptIndex] : ''
+
+if (!taskPrompt) {
+  console.error('Usage: node --import tsx .claude/workflows/gate-job-gate.mjs [--dry-run] "<the task prompt>"')
+  process.exit(1)
+}
 
 const configPath = new URL('../../src/workflows/workflows-config.json', import.meta.url)
 const configStr = readFileSync(configPath, 'utf8')
@@ -102,6 +109,7 @@ async function run() {
       } catch (err) {
         verifyOk = false
         if (postPhase.gate.onFail === 'stop') {
+          phaseEnd(runId, postPhase.name, false, postRes.durationMs)
           throw new Error(`Gate verify failed in phase ${postPhase.name}: ${err.message}`)
         } else if (postPhase.gate.onFail === 'report') {
           postRes.data = { ...(postRes.data || {}), verifyError: err.message }

@@ -15,7 +15,9 @@ const runFilter = (() => {
 })()
 const intervalArg = (() => {
   const i = args.indexOf('--interval')
-  return i >= 0 ? Number(args[i + 1]) : 500
+  if (i < 0) return 500
+  const v = Number(args[i + 1])
+  return Number.isFinite(v) && v > 0 ? v : 500
 })()
 
 const useColor = process.stdout.isTTY && !args.includes('--no-color')
@@ -90,7 +92,7 @@ function buildFrame(tick) {
 
   const states = runIds.map(readRun).filter(Boolean)
   if (states.length === 0) {
-    out.push(dim('  no runs yet — start a workflow to see it here'))
+    out.push(dim(runFilter ? `  run "${runFilter}" not found` : '  no runs yet — start a workflow to see it here'))
   } else {
     for (const s of states) {
       out.push(renderRun(s, tick))

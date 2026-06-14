@@ -67,6 +67,7 @@ async function run() {
         } catch (error) {
           const verifyOutput = error.stdout?.toString() || error.message
           if (phase.gate.onFail === 'stop') {
+            phaseEnd(runId, phase.name, false, result.durationMs)
             throw new Error(`Gate verify failed: ${verifyOutput}`)
           } else if (phase.gate.onFail === 'report') {
             finalOk = false
