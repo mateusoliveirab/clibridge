@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { runOllama, ollamaAdapter } from '../src/adapters/ollama.ts'
+import { defaultAdapters } from '../src/adapters/registry.ts'
+
+const ollamaAdapter = defaultAdapters.ollama
 
 test('ollamaAdapter declares all capabilities as false', () => {
   assert.equal(ollamaAdapter.capabilities.structuredOutput, false)
   assert.equal(ollamaAdapter.capabilities.images, false)
   assert.equal(ollamaAdapter.capabilities.sandbox, false)
   assert.equal(ollamaAdapter.capabilities.skipPermissions, false)
-  assert.equal(ollamaAdapter.run, runOllama)
 })
 
 test('runOllama builds correct arguments with default model', async () => {
@@ -19,7 +20,7 @@ test('runOllama builds correct arguments with default model', async () => {
     return { stdout: 'OK', stderr: '', durationMs: 5 }
   }
 
-  const result = await runOllama({
+  const result = await ollamaAdapter.run({
     prompt: 'hello',
     cwd: '/workspace/dir',
   }, mockRunProcess)
@@ -36,7 +37,7 @@ test('runOllama uses provided model when specified', async () => {
     return { stdout: 'OK', stderr: '', durationMs: 5 }
   }
 
-  const result = await runOllama({
+  const result = await ollamaAdapter.run({
     prompt: 'hello',
     model: 'mistral',
     cwd: '/workspace/dir',
@@ -53,7 +54,7 @@ test('runOllama respects OLLAMA_MODEL from request environment or process enviro
     return { stdout: 'OK', stderr: '', durationMs: 5 }
   }
 
-  const result = await runOllama({
+  const result = await ollamaAdapter.run({
     prompt: 'hello',
     cwd: '/workspace/dir',
     env: { OLLAMA_MODEL: 'qwen3.5:9b' }

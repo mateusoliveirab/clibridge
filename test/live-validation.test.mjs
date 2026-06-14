@@ -27,7 +27,8 @@ test('summarizeResult accepts exactly OK as a passing live validation', () => {
 
 test('buildLiveValidationInput requests skip-permissions only for providers that support it', () => {
   assert.equal(buildLiveValidationInput({ provider: 'claude' }).dangerouslySkipPermissions, true)
-  assert.equal(buildLiveValidationInput({ provider: 'gemini' }).dangerouslySkipPermissions, false)
+  assert.equal(buildLiveValidationInput({ provider: 'gemini' }).dangerouslySkipPermissions, true)
+  assert.equal(buildLiveValidationInput({ provider: 'ollama' }).dangerouslySkipPermissions, false)
 })
 
 test('summarizeResult marks successful but unexpected output as failure', () => {

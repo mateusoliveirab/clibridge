@@ -12,6 +12,10 @@ export const runGemini: AdapterFn = async (request: ResolvedRequest, runProcessF
     args.push('--include-directories', dirPath)
   }
 
+  // Unattended auto-approval so gemini can run tools / write files in headless
+  // mode. Only emitted when the request explicitly opts in.
+  if (request.dangerouslySkipPermissions) args.push('--yolo')
+
   const processResult = await runProcessFn('gemini', args, {
     cwd: request.cwd,
     env: request.env,
@@ -32,12 +36,12 @@ export const runGemini: AdapterFn = async (request: ResolvedRequest, runProcessF
   })
 }
 
-// skipPermissions is false: gemini's unattended flag (--yolo) is not yet wired,
-// so the broker rejects skip-permission requests for gemini instead of silently
-// running attended.
+// skipPermissions is true: gemini's unattended flag (--yolo) is wired above, so
+// the broker may dispatch skip-permission requests and gemini auto-approves tool
+// use and file edits in headless mode.
 export const geminiAdapter: ProviderAdapter = {
   command: 'gemini',
-  capabilities: { structuredOutput: true, images: false, sandbox: false, skipPermissions: false },
+  capabilities: { structuredOutput: true, images: false, sandbox: false, skipPermissions: true },
   run: runGemini,
 }
 

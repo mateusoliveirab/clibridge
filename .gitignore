@@ -7,4 +7,4 @@ coverage/
 .DS_Store
 logs/
 tmp/
-
+.bridge-runs/

@@ -228,6 +228,23 @@ test('runGemini builds correct arguments with addDir and addDirs', async () => {
   ])
 })
 
+test('runGemini appends --yolo when skip-permissions is requested', async () => {
+  let capturedArgs
+  const mockRunProcess = async (cmd, args) => {
+    capturedArgs = args
+    return { stdout: 'OK', stderr: '', durationMs: 5 }
+  }
+
+  const result = await runGemini({
+    prompt: 'hello',
+    cwd: '/workspace/dir',
+    dangerouslySkipPermissions: true,
+  }, mockRunProcess)
+
+  assert.equal(result.ok, true)
+  assert.ok(capturedArgs.includes('--yolo'))
+})
+
 test('runOpenCode builds correct arguments with addDir and addDirs', async () => {
   let capturedArgs
   const mockRunProcess = async (cmd, args, options) => {

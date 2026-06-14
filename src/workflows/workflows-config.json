@@ -1,0 +1,140 @@
+{
+  "research-plan-implement": {
+    "name": "research-plan-implement",
+    "description": "Research code, plan changes, and implement.",
+    "whenToUse": "Tasks with multiple unknowns resolved only through investigation; cross-repo changes; diagnostic work before designing a fix.",
+    "antiPattern": "Simple linear tasks where the path is already clear; unknowns trivial enough to resolve inline.",
+    "phases": [
+      {
+        "name": "research",
+        "role": "explorer",
+        "demand": {
+          "cost": "cheap"
+        },
+        "output": "text"
+      },
+      {
+        "name": "plan",
+        "role": "architect",
+        "demand": {
+          "strength": "high"
+        },
+        "input": "research",
+        "output": "text"
+      },
+      {
+        "name": "implement",
+        "role": "writer",
+        "demand": {
+          "capabilities": [
+            "skipPermissions"
+          ]
+        },
+        "input": "plan",
+        "skipPermissions": true,
+        "gate": {
+          "verify": "npm run typecheck && npm test",
+          "onFail": "report"
+        }
+      }
+    ]
+  },
+  "fan-out-judge": {
+    "name": "fan-out-judge",
+    "description": "Attempt the task in parallel across multiple providers and evaluate the results.",
+    "whenToUse": "Unknown-best-approach problems where independent attempts from different providers can be compared; catching shortcuts a single run would hide.",
+    "antiPattern": "Deterministic tasks with one correct output; when running N providers adds cost without signal.",
+    "phases": [
+      {
+        "name": "attempts",
+        "role": "writer",
+        "demand": {
+          "capabilities": [
+            "skipPermissions"
+          ]
+        },
+        "fanOut": {
+          "count": "all-writers"
+        },
+        "parallel": true
+      },
+      {
+        "name": "judge",
+        "role": "judge",
+        "demand": {
+          "capabilities": [
+            "structuredOutput"
+          ]
+        },
+        "input": "attempts",
+        "output": "structured"
+      }
+    ]
+  },
+  "gate-job-gate": {
+    "name": "gate-job-gate",
+    "description": "Pre-flight validation, job execution, and post-flight verification.",
+    "whenToUse": "Mutating or destructive operations; production changes needing before/after confirmation; any op where a silent failure is worse than a blocked run.",
+    "antiPattern": "Read-only operations; single pre-check without meaningful post-verification; ops so fast and reversible the two gates exceed the risk.",
+    "phases": [
+      {
+        "name": "pre",
+        "role": "explorer",
+        "demand": {},
+        "readOnly": true,
+        "gate": {
+          "assert": "preconditions hold",
+          "onFail": "stop"
+        }
+      },
+      {
+        "name": "job",
+        "role": "writer",
+        "demand": {
+          "capabilities": [
+            "skipPermissions"
+          ]
+        },
+        "skipPermissions": true,
+        "confirmIfDestructive": true
+      },
+      {
+        "name": "post",
+        "role": "explorer",
+        "demand": {},
+        "readOnly": true,
+        "gate": {
+          "verify": "npm run typecheck && npm test",
+          "onFail": "report"
+        }
+      }
+    ]
+  },
+  "describe-after-apply": {
+    "name": "describe-after-apply",
+    "description": "Perform task first, describe the result.",
+    "whenToUse": "Resources with outputs only known post-execution (IDs, URLs, diffs); PR/report text that must reflect what really happened.",
+    "antiPattern": "Pre-defining the description before execution; one-off ops where refining the description has no future payoff.",
+    "phases": [
+      {
+        "name": "job",
+        "role": "writer",
+        "demand": {
+          "capabilities": [
+            "skipPermissions"
+          ]
+        },
+        "skipPermissions": true
+      },
+      {
+        "name": "describe",
+        "role": "architect",
+        "demand": {
+          "strength": "high"
+        },
+        "input": "job",
+        "output": "text"
+      }
+    ]
+  }
+}
