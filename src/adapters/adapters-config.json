@@ -1,0 +1,20 @@
+{
+  "ollama": {
+    "command": "ollama",
+    "capabilities": {
+      "structuredOutput": false,
+      "images": false,
+      "sandbox": false,
+      "skipPermissions": false
+    },
+    "args": [
+      { "lit": "run" },
+      { "var": "model", "env": "OLLAMA_MODEL", "default": "llama3" },
+      { "var": "prompt" }
+    ],
+    "output": {
+      "type": "raw",
+      "trim": true
+    }
+  }
+}
