@@ -1,10 +1,12 @@
-# MCP Workflow CLI Bridge
+<h1 align="center">MCP Workflow CLI Bridge</h1>
 
-![CI](https://github.com/mateusoliveirab/mcp-workflow-cli-bridge/actions/workflows/ci.yml/badge.svg)
-![node](https://img.shields.io/badge/node-%3E%3D20-blue)
-![typescript](https://img.shields.io/badge/typescript-5.x-blue)
-![license](https://img.shields.io/badge/license-MIT-green)
-![mcp](https://img.shields.io/badge/mcp-supported-orange)
+<p align="center">
+  <img src="https://github.com/mateusoliveirab/mcp-workflow-cli-bridge/actions/workflows/ci.yml/badge.svg" alt="CI" />
+  <img src="https://img.shields.io/badge/node-%3E%3D20-blue" alt="node" />
+  <img src="https://img.shields.io/badge/typescript-5.x-blue" alt="typescript" />
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="license" />
+  <img src="https://img.shields.io/badge/mcp-supported-orange" alt="mcp" />
+</p>
 
 A local Model Context Protocol (MCP) server that acts as a dispatch hub, routing tasks to coding agent CLIs installed on your local machine (`claude`, `codex`, `opencode`, `gemini`, `agy`).
 
