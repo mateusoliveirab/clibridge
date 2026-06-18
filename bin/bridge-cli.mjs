@@ -64,6 +64,7 @@ Commands:
                           --inputs <json>       JSON string of workflow input variables.
                           --contract-format <format>
                                                 Render agent-to-agent object context as json or toon.
+                          --timeout-ms <ms>     Timeout passed to agent phases.
   help                  Show this help menu.
 `)
 }
@@ -128,6 +129,7 @@ async function runWorkflowCmd() {
   let dryRun = false
   let inputs = {}
   let contractFormat
+  let timeoutMs
 
   for (let i = 2; i < args.length; i++) {
     if (args[i] === '--cwd') {
@@ -148,6 +150,13 @@ async function runWorkflowCmd() {
         process.exit(1)
       }
       i++
+    } else if (args[i] === '--timeout-ms') {
+      timeoutMs = Number(args[i + 1])
+      if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+        console.error('Error: --timeout-ms must be a positive integer')
+        process.exit(1)
+      }
+      i++
     }
   }
 
@@ -161,6 +170,7 @@ async function runWorkflowCmd() {
   console.log(`Task: ${task}`)
   console.log(`Dry-run: ${dryRun}`)
   if (contractFormat) console.log(`Contract format: ${contractFormat}`)
+  if (timeoutMs) console.log(`Timeout: ${timeoutMs}ms`)
 
   try {
     const result = await runWorkflow({
@@ -170,6 +180,7 @@ async function runWorkflowCmd() {
       dryRun,
       inputs,
       contractFormat,
+      timeoutMs,
       dangerouslySkipPermissions: true
     })
 

@@ -31,6 +31,7 @@ Input:
   "task": "fix wrap prepare-only path",
   "dryRun": true,
   "contractFormat": "toon",
+  "timeoutMs": 90000,
   "inputs": {
     "changeType": "bugfix",
     "publishTarget": "pr",
@@ -43,6 +44,8 @@ Input:
 The executor loads `workflowPath`, runs phases in order, records run-state under the target `cwd`, and returns structured phase results.
 
 `contractFormat` is optional and defaults to `json`. When set to `toon`, object-valued template variables in agent prompts, such as `{{inputs}}` or `{{results}}`, render as TOON instead of pretty JSON. Shell command templates keep JSON-style rendering to avoid changing command semantics.
+
+`timeoutMs` is optional and is forwarded to each delegated `run_agent` call. It is useful for live validation workflows that exercise multiple real provider CLIs.
 
 ## Workflow File Shape
 

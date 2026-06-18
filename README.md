@@ -286,6 +286,7 @@ Runs a declarative workflow file through the generic MCP workflow executor. This
 | `inputs` | `object` | No | Workflow-specific inputs such as `changeType`, `publishTarget`, or `issue` |
 | `routeConfigPath` | `string` | No | Optional `.json` or `.toon` route config for provider selection |
 | `contractFormat` | `"json"` or `"toon"` | No | Renders object context in agent prompts as JSON or TOON. Defaults to `json` |
+| `timeoutMs` | `number` | No | Timeout passed to each agent phase |
 
 #### Example Call:
 ```json
@@ -298,7 +299,8 @@ Runs a declarative workflow file through the generic MCP workflow executor. This
     "changeType": "bugfix",
     "publishTarget": "pr"
   },
-  "contractFormat": "toon"
+  "contractFormat": "toon",
+  "timeoutMs": 90000
 }
 ```
 
@@ -392,6 +394,12 @@ Validate live provider adapters strictly (tests the actual binary directly, bypa
 ```bash
 npm run live:validate
 npm run live:validate:claude
+```
+
+Validate the TOON workflow contract against real provider clients:
+```bash
+npm run live:toon-contract
+npm run live:toon-contract -- --providers claude,codex,gemini --timeout-ms 120000
 ```
 
 ---

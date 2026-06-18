@@ -326,6 +326,57 @@ test('runWorkflow stores structured phase results using the selected contract fo
   }
 })
 
+test('runWorkflow forwards timeoutMs to agent phases', async () => {
+  const dir = tempDir()
+  const requests = []
+  try {
+    const workflowPath = path.join(dir, 'workflow.json')
+    writeJson(workflowPath, {
+      name: 'timeout-workflow',
+      phases: [
+        {
+          name: 'plan',
+          kind: 'agent',
+          provider: 'mock',
+          prompt: 'plan',
+        },
+      ],
+    })
+
+    const result = await runWorkflow({
+      workflowPath,
+      cwd: dir,
+      task: 'timeout',
+      timeoutMs: 12345,
+    }, {
+      adapters: {
+        mock: async (request) => {
+          requests.push(request)
+          return {
+            ok: true,
+            runId: request.runId,
+            provider: request.provider,
+            phase: request.phase,
+            label: request.label,
+            durationMs: 1,
+            attempts: 1,
+            structured: false,
+            text: 'ok',
+            usage: {},
+            artifacts: [],
+            warnings: [],
+          }
+        },
+      },
+    })
+
+    assert.equal(result.ok, true)
+    assert.equal(requests[0].timeoutMs, 12345)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('Headroom workflow blocks architecture PR work without issue or maintainer approval', async () => {
   const dir = tempDir()
   try {

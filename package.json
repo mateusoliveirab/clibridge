@@ -32,6 +32,7 @@
     "check": "node --version && npm --version",
     "docs": "find docs -maxdepth 1 -type f -name '*.md' -print | sort",
     "test:coverage": "node --import tsx --test --experimental-test-coverage",
+    "live:toon-contract": "tsx scripts/live-toon-contract-validation.mjs",
     "live:validate": "tsx scripts/live-validations.mjs",
     "live:validate:agy": "tsx scripts/live-validations.mjs agy",
     "live:validate:claude": "tsx scripts/live-validations.mjs claude",

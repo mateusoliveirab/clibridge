@@ -22,6 +22,7 @@ export const RunWorkflowInputSchema = z.object({
   routeConfigPath: z.string().optional(),
   dangerouslySkipPermissions: z.boolean().optional(),
   contractFormat: z.enum(['json', 'toon']).optional(),
+  timeoutMs: z.number().int().positive().optional(),
 })
 
 const ConditionSchema = z.object({
@@ -349,6 +350,7 @@ async function agentPhase(
     provider: phase.provider || context.provider || (context.input.dryRun ? 'agy' : undefined),
     agentType: phase.agentType,
     schema: phase.schema,
+    timeoutMs: context.input.timeoutMs,
     dryRun: context.input.dryRun,
     mockText: phase.mockText || `[dry-run ${phase.name}]`,
     dangerouslySkipPermissions: phase.skipPermissions || context.input.dangerouslySkipPermissions,
@@ -359,7 +361,13 @@ async function agentPhase(
   })
 
   if (!result.ok) {
-    throw new Error(`${phase.name} failed: ${result.errorCode} ${result.message}`)
+    const detail = [
+      result.message,
+      result.stdoutTail,
+      result.stderrTail,
+      typeof result.details === 'object' && result.details ? JSON.stringify(result.details) : '',
+    ].filter(Boolean).join('\n')
+    throw new Error(`${phase.name} failed: ${result.errorCode} ${detail}`)
   }
   if (result.structured) {
     return formatContractValue(result.data, context.contractFormat)
