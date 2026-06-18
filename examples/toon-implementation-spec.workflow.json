@@ -1,0 +1,99 @@
+{
+  "name": "toon-implementation-spec",
+  "description": "Research TOON, evaluate clibridge integration points, and write an implementation spec before changing runtime code.",
+  "inputDefaults": {
+    "researchFile": "docs/research/toon-format-research.md",
+    "fitFile": "docs/research/toon-codebase-fit.md",
+    "specFile": "docs/research/toon-implementation-spec.md",
+    "evaluationFile": "docs/research/toon-evaluation-plan.md",
+    "targetUse": "Support TOON anywhere clibridge currently accepts JSON workflow/config structured payloads, while keeping JSON as the canonical internal runtime model.",
+    "toonPackage": "@toon-format/toon"
+  },
+  "phases": [
+    {
+      "name": "policy",
+      "kind": "policy",
+      "assertions": [
+        {
+          "input": "researchFile",
+          "notEquals": "",
+          "message": "researchFile must be set."
+        },
+        {
+          "input": "fitFile",
+          "notEquals": "",
+          "message": "fitFile must be set."
+        },
+        {
+          "input": "specFile",
+          "notEquals": "",
+          "message": "specFile must be set."
+        },
+        {
+          "input": "evaluationFile",
+          "notEquals": "",
+          "message": "evaluationFile must be set."
+        }
+      ]
+    },
+    {
+      "name": "code_context",
+      "kind": "read-files",
+      "maxBytes": 18000,
+      "files": [
+        "package.json",
+        "src/types.ts",
+        "src/config/load-config.ts",
+        "src/mcp/create-server.ts",
+        "src/workflows/workflow-executor.ts",
+        "src/broker/run-agent.ts",
+        "src/broker/schema-validation.ts",
+        "src/adapters/common.ts",
+        "docs/workflow-executor-contract.md",
+        "docs/gotchas.md",
+        "README.md"
+      ]
+    },
+    {
+      "name": "format_research",
+      "kind": "agent",
+      "provider": "gemini",
+      "skipPermissions": true,
+      "prompt": "You have access to real-time web search tools. Use them. Research TOON (Token-Oriented Object Notation) for a TypeScript MCP/CLI dispatcher named clibridge.\n\nTarget implementation goal:\n{{inputs.targetUse}}\n\nRequired primary sources to inspect and cite with URLs:\n- https://github.com/toon-format/toon\n- https://github.com/toon-format/spec\n- https://toonformat.dev/\n- https://www.npmjs.com/package/{{inputs.toonPackage}}\n\nRequired skeptical/benchmark sources to inspect and cite with URLs if available:\n- https://arxiv.org/abs/2605.29676\n- https://arxiv.org/abs/2603.03306\n\nResearch questions:\n1. What is the current TOON spec version, stability status, file extension, media type, and compatibility promise?\n2. What does the official TypeScript package expose for encode/decode, CLI usage, and validation behavior?\n3. Which JSON shapes benefit from TOON, and which shapes should stay JSON?\n4. What are the known risks for LLM generation, parsing reliability, deep nesting, non-uniform arrays, and multi-turn agent loops?\n5. What would a safe integration strategy look like for a project that already validates JSON Schema with AJV and exposes MCP structuredContent?\n\nWrite a concise but source-backed markdown report to '{{inputs.researchFile}}'. Include an explicit 'Source Notes' section with URLs and dates/version facts you verified. Output the full markdown content as your final response too."
+    },
+    {
+      "name": "codebase_fit",
+      "kind": "agent",
+      "provider": "gemini",
+      "skipPermissions": true,
+      "prompt": "Inspect the clibridge repository at {{cwd}} and use this already-read context:\n\n{{results.code_context}}\n\nAlso use this TOON research:\n\n{{results.format_research}}\n\nTask:\nEvaluate how TOON should fit into clibridge without implementing it yet. Be specific and code-grounded.\n\nAnswer these questions:\n1. Where does clibridge currently require JSON parsing, JSON Schema validation, JSONL logs, or MCP structured JSON envelopes?\n2. Which surfaces are reasonable to support with TOON in v1: workflow files, route configs, schema literals, run inputs, run outputs, logs, docs examples, or CLI utilities?\n3. Which surfaces should remain JSON-only because MCP clients, AJV, npm/package metadata, or existing compatibility require it?\n4. What module boundaries and tests should exist so JSON and TOON share one internal object model?\n5. What migration path avoids breaking existing JSON workflows?\n6. What open questions must be answered before implementation?\n\nWrite the codebase-fit analysis to '{{inputs.fitFile}}'. Output the full markdown content as your final response too."
+    },
+    {
+      "name": "implementation_spec",
+      "kind": "agent",
+      "provider": "gemini",
+      "skipPermissions": true,
+      "prompt": "Create a concrete implementation spec for adding TOON support to clibridge.\n\nInputs:\n\nTOON research:\n{{results.format_research}}\n\nCodebase fit analysis:\n{{results.codebase_fit}}\n\nOriginal goal:\n{{inputs.targetUse}}\n\nSpec requirements:\n- Do not implement code.\n- Keep JSON as the canonical in-memory representation unless the research strongly proves otherwise.\n- Preserve all existing JSON workflows/configs and MCP response shapes.\n- Define exact supported v1 scope and explicit non-goals.\n- Define user-facing behavior, file extensions, format detection rules, errors, and backwards compatibility.\n- Define package/dependency choice and why.\n- Define module/file changes with function names and responsibilities.\n- Define test matrix, fixtures, and acceptance criteria.\n- Include an evaluation gate for whether TOON is worth enabling by default or should remain opt-in.\n- Include risks and rollback strategy.\n\nWrite the markdown spec to '{{inputs.specFile}}'. Use these sections exactly:\n# TOON Implementation Spec\n## Decision Summary\n## Goals\n## Non-Goals\n## Current JSON Contract\n## Proposed User-Facing Contract\n## Internal Architecture\n## Parsing And Validation Rules\n## Implementation Steps\n## Test Plan\n## Evaluation Criteria\n## Risks And Rollback\n## Open Questions\n\nOutput the full markdown content as your final response too."
+    },
+    {
+      "name": "evaluation_plan",
+      "kind": "agent",
+      "provider": "gemini",
+      "skipPermissions": true,
+      "prompt": "Create a practical evaluation plan for validating TOON support after implementation.\n\nUse this spec:\n{{results.implementation_spec}}\n\nUse this codebase context:\n{{results.code_context}}\n\nThe plan must be executable by this repository's maintainer and should cover:\n1. Fixture corpus: current workflow JSON files, route configs, response envelopes, and JSON Schema examples.\n2. Round-trip checks: JSON -> TOON -> JSON equality, including edge cases.\n3. Token/cost checks: how to measure savings without adding heavy runtime dependencies.\n4. Reliability checks: model prompt comprehension and generated TOON parse failures vs JSON baseline.\n5. CI checks: which tests must run in `npm test` and which belong in optional live validation.\n6. Release decision: objective threshold to ship as opt-in, default-on, or reject.\n\nWrite the plan to '{{inputs.evaluationFile}}'. Output the full markdown content as your final response too."
+    },
+    {
+      "name": "validate",
+      "kind": "shell",
+      "commands": [
+        "test -f {{inputs.researchFile}}",
+        "test -f {{inputs.fitFile}}",
+        "test -f {{inputs.specFile}}",
+        "test -f {{inputs.evaluationFile}}",
+        "grep -q '# TOON Implementation Spec' {{inputs.specFile}}",
+        "grep -q '## Evaluation Criteria' {{inputs.specFile}}",
+        "grep -q 'Release Decision' {{inputs.evaluationFile}}"
+      ]
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { runAgent } from '../broker/run-agent.ts'
 import { defaultAdapters } from '../adapters/registry.ts'
 import { loadJsonConfig } from '../config/load-config.ts'
+import { loadStructuredDataFileSync } from '../config/structured-data.ts'
 import { newRunId, startRun, phaseStart, phaseEnd, endRun } from './run-state.ts'
 import { resolveRole } from './roles.ts'
 import type { BridgeConfig, Envelope } from '../types.ts'
@@ -201,7 +202,7 @@ function loadWorkflowFile(workflowPath: string): WorkflowFile {
   const resolvedPath = path.resolve(workflowPath)
   let parsed: unknown
   try {
-    parsed = JSON.parse(fs.readFileSync(resolvedPath, 'utf8'))
+    parsed = loadStructuredDataFileSync(resolvedPath)
   } catch (error) {
     throw new Error(`Failed to read workflow file at ${resolvedPath}: ${(error as Error).message}`)
   }

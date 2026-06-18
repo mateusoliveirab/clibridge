@@ -1,0 +1,146 @@
+{
+  "summary": {
+    "generatedAt": "2026-06-18T12:03:27.278Z",
+    "methodology": "Karpathy AutoResearch adaptation: fixed corpus, bounded experiments, objective score, keep/discard ratchet.",
+    "fixtures": 7,
+    "kept": 0,
+    "maybe": 0,
+    "discarded": 7,
+    "allRoundTripsOk": true
+  },
+  "experiments": [
+    {
+      "fixture": "examples/greetings-research.workflow.json",
+      "sourceBytes": 1101,
+      "compactJsonBytes": 869,
+      "prettyJsonBytes": 1100,
+      "toonBytes": 864,
+      "estimatedJsonTokens": 218,
+      "estimatedToonTokens": 216,
+      "roundTripOk": true,
+      "shape": {
+        "arrays": 3,
+        "uniformObjectArrays": 1,
+        "largestUniformArray": 1,
+        "maxDepth": 5
+      },
+      "savingsVsSource": 0.21525885558583105,
+      "savingsVsCompact": 0.005753739930955121,
+      "decision": "discard"
+    },
+    {
+      "fixture": "examples/headroom-contribution.workflow.json",
+      "sourceBytes": 3919,
+      "compactJsonBytes": 3053,
+      "prettyJsonBytes": 4038,
+      "toonBytes": 3132,
+      "estimatedJsonTokens": 764,
+      "estimatedToonTokens": 783,
+      "roundTripOk": true,
+      "shape": {
+        "arrays": 8,
+        "uniformObjectArrays": 0,
+        "largestUniformArray": 0,
+        "maxDepth": 6
+      },
+      "savingsVsSource": 0.20081653483031386,
+      "savingsVsCompact": -0.02587618735669833,
+      "decision": "discard"
+    },
+    {
+      "fixture": "examples/headroom.contribution-workflow.json",
+      "sourceBytes": 1402,
+      "compactJsonBytes": 1052,
+      "prettyJsonBytes": 1401,
+      "toonBytes": 1006,
+      "estimatedJsonTokens": 263,
+      "estimatedToonTokens": 252,
+      "roundTripOk": true,
+      "shape": {
+        "arrays": 6,
+        "uniformObjectArrays": 0,
+        "largestUniformArray": 0,
+        "maxDepth": 3
+      },
+      "savingsVsSource": 0.28245363766048504,
+      "savingsVsCompact": 0.043726235741444866,
+      "decision": "discard"
+    },
+    {
+      "fixture": "examples/monitor-ux-refresh.workflow.json",
+      "sourceBytes": 6185,
+      "compactJsonBytes": 5849,
+      "prettyJsonBytes": 6272,
+      "toonBytes": 5861,
+      "estimatedJsonTokens": 1458,
+      "estimatedToonTokens": 1461,
+      "roundTripOk": true,
+      "shape": {
+        "arrays": 5,
+        "uniformObjectArrays": 0,
+        "largestUniformArray": 0,
+        "maxDepth": 4
+      },
+      "savingsVsSource": 0.05238480194017785,
+      "savingsVsCompact": -0.0020516327577363653,
+      "decision": "discard"
+    },
+    {
+      "fixture": "examples/oss-best-practices-research.workflow.json",
+      "sourceBytes": 3661,
+      "compactJsonBytes": 3466,
+      "prettyJsonBytes": 3660,
+      "toonBytes": 3474,
+      "estimatedJsonTokens": 866,
+      "estimatedToonTokens": 868,
+      "roundTripOk": true,
+      "shape": {
+        "arrays": 2,
+        "uniformObjectArrays": 0,
+        "largestUniformArray": 0,
+        "maxDepth": 4
+      },
+      "savingsVsSource": 0.051078940180278615,
+      "savingsVsCompact": -0.002308136180034622,
+      "decision": "discard"
+    },
+    {
+      "fixture": "examples/portfolio-blog.routes.json",
+      "sourceBytes": 1014,
+      "compactJsonBytes": 703,
+      "prettyJsonBytes": 1028,
+      "toonBytes": 724,
+      "estimatedJsonTokens": 176,
+      "estimatedToonTokens": 181,
+      "roundTripOk": true,
+      "shape": {
+        "arrays": 3,
+        "uniformObjectArrays": 0,
+        "largestUniformArray": 0,
+        "maxDepth": 4
+      },
+      "savingsVsSource": 0.2859960552268245,
+      "savingsVsCompact": -0.029871977240398292,
+      "decision": "discard"
+    },
+    {
+      "fixture": "examples/toon-implementation-spec.workflow.json",
+      "sourceBytes": 7634,
+      "compactJsonBytes": 6865,
+      "prettyJsonBytes": 7633,
+      "toonBytes": 6780,
+      "estimatedJsonTokens": 1717,
+      "estimatedToonTokens": 1695,
+      "roundTripOk": true,
+      "shape": {
+        "arrays": 4,
+        "uniformObjectArrays": 1,
+        "largestUniformArray": 4,
+        "maxDepth": 5
+      },
+      "savingsVsSource": 0.11186795913020697,
+      "savingsVsCompact": 0.012381646030589949,
+      "decision": "discard"
+    }
+  ]
+}

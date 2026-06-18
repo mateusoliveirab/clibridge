@@ -43,6 +43,7 @@
     "smoke": "tsx scripts/smoke.mjs",
     "smoke:live": "tsx scripts/smoke.mjs --live",
     "test": "node --import tsx --test",
+    "toon:eval": "node scripts/toon-autoresearch-eval.mjs",
     "typecheck": "tsc --noEmit",
     "validate:plugin": "python3 $HOME/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py ."
   },
@@ -51,6 +52,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@toon-format/toon": "^2.3.0",
     "ajv": "^8.20.0",
     "yaml": "^2.9.0",
     "zod": "^4.4.3"

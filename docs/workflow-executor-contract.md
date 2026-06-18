@@ -43,7 +43,9 @@ The executor loads `workflowPath`, runs phases in order, records run-state under
 
 ## Workflow File Shape
 
-The current JSON workflow format supports these phase kinds:
+Workflow files may be encoded as `.json` or `.toon`. Both formats decode into the same internal JSON-compatible object model before Zod validation and execution. JSON remains the canonical documented format; TOON is an opt-in input representation for workflow and route config files only.
+
+The current workflow object format supports these phase kinds:
 
 - `read-files`: reads repo-local rule/context files into phase results.
 - `policy`: applies structured assertions to `inputs` before mutating work starts.

@@ -1,0 +1,11 @@
+name: toon-workflow
+inputDefaults:
+  changeType: bugfix
+phases[2]:
+  - name: plan
+    kind: agent
+    mockText: planned from toon
+    prompt: "Task={{task}} Type={{inputs.changeType}}"
+  - name: validate
+    kind: shell
+    commands[1]: "echo {{inputs.changeType}}"

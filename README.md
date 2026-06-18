@@ -70,7 +70,7 @@
 - **Dynamic Adapter Broker** — Runs local binaries (`claude`, `codex`, `opencode`, `gemini`, `agy`, `ollama`) as subprocesses.
 - **Capability-Based Routing** — Matches requirements (structured outputs, image support, sandboxing) to available local engines.
 - **Strict JSON Validation** — Enforces user-defined JSON schemas on the final response to guarantee structured outputs.
-- **Declarative Workflows** — Orchestrates multi-phase developer workflows from simple JSON configuration files.
+- **Declarative Workflows** — Orchestrates multi-phase developer workflows from JSON files, with opt-in `.toon` input support for workflow and route config files.
 - **Live Terminal Monitor** — Provides a real-time TUI dashboard (`bridge-monitor`) to tail executions.
 
 ---
@@ -279,12 +279,12 @@ Runs a declarative workflow file through the generic MCP workflow executor. This
 
 | Field | Type | Required | Description |
 | :--- | :---: | :---: | :--- |
-| `workflowPath` | `string` | **Yes** | Absolute or caller-resolvable path to a JSON workflow file |
+| `workflowPath` | `string` | **Yes** | Absolute or caller-resolvable path to a `.json` or `.toon` workflow file |
 | `cwd` | `string` | **Yes** | Target repository where phases and shell commands run |
 | `task` | `string` | **Yes** | User task or contribution objective |
 | `dryRun` | `boolean` | No | If true, agent phases and shell commands are simulated |
 | `inputs` | `object` | No | Workflow-specific inputs such as `changeType`, `publishTarget`, or `issue` |
-| `routeConfigPath` | `string` | No | Optional route config for provider selection |
+| `routeConfigPath` | `string` | No | Optional `.json` or `.toon` route config for provider selection |
 
 #### Example Call:
 ```json
@@ -318,6 +318,8 @@ Create a `route-config.json` at your repository root to govern automatic tool ex
 
 *If no route configuration matches, the broker will auto-select a provider only if exactly one available CLI satisfies the requested capabilities.*
 
+`routeConfigPath` also accepts `.toon` files. TOON is decoded at the file boundary and then validated as the same internal JSON-compatible object model; MCP responses, JSON Schema payloads, and `.bridge-runs/*.jsonl` remain JSON.
+
 ---
 
 ## Contribution Workflow
@@ -328,7 +330,7 @@ For repository contribution work, the bridge includes a client-neutral workflow 
 node bin/bridge-contribute.mjs --dry-run "add a focused test for route selection"
 ```
 
-This runs the reference `github-contribution` CLI workflow as a code architecture developer. For MCP clients, prefer `run_workflow` with a JSON workflow file such as `examples/headroom-contribution.workflow.json`.
+This runs the reference `github-contribution` CLI workflow as a code architecture developer. For MCP clients, prefer `run_workflow` with a JSON workflow file such as `examples/headroom-contribution.workflow.json`. `.toon` workflow files are supported as an opt-in input representation, but JSON remains the canonical documented format.
 
 ---
 
