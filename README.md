@@ -285,6 +285,7 @@ Runs a declarative workflow file through the generic MCP workflow executor. This
 | `dryRun` | `boolean` | No | If true, agent phases and shell commands are simulated |
 | `inputs` | `object` | No | Workflow-specific inputs such as `changeType`, `publishTarget`, or `issue` |
 | `routeConfigPath` | `string` | No | Optional `.json` or `.toon` route config for provider selection |
+| `contractFormat` | `"json"` or `"toon"` | No | Renders object context in agent prompts as JSON or TOON. Defaults to `json` |
 
 #### Example Call:
 ```json
@@ -296,9 +297,12 @@ Runs a declarative workflow file through the generic MCP workflow executor. This
   "inputs": {
     "changeType": "bugfix",
     "publishTarget": "pr"
-  }
+  },
+  "contractFormat": "toon"
 }
 ```
+
+`contractFormat: "toon"` affects agent-to-agent prompt context such as `{{inputs}}`, `{{results}}`, and structured phase results passed to later agents. It does not change MCP `structuredContent`, JSON Schema validation, normalized provider envelopes, shell command rendering, or `.bridge-runs/*.jsonl`.
 
 ---
 
@@ -345,6 +349,7 @@ node --import tsx bin/bridge-cli.mjs list                  # List registered wor
 node --import tsx bin/bridge-cli.mjs info <workflow-name>  # Inspect phase details
 node --import tsx bin/bridge-cli.mjs doc                   # View the generic executor specification
 node --import tsx bin/bridge-cli.mjs run <workflow-path> --task "prompt"  # Run a workflow directly
+node --import tsx bin/bridge-cli.mjs run <workflow-path> --task "prompt" --contract-format toon
 ```
 
 ### 2. Live Run TUI Monitor (`bridge-monitor`)

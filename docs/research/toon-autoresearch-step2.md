@@ -15,7 +15,7 @@ The ratchet metric is:
 
 ## Summary
 
-- Generated at: 2026-06-18T12:03:27.278Z
+- Generated at: 2026-06-18T17:48:57.988Z
 - Fixtures: 7
 - Round-trip status: all passed
 - Decisions: 0 keep, 0 maybe, 7 discard
@@ -37,6 +37,8 @@ The ratchet metric is:
 Round-trip correctness passes on the selected corpus, so TOON remains viable as an input-file representation.
 
 The measured corpus does not justify making TOON default. The safe ratchet is narrower: keep the v1 implementation scoped to opt-in `.toon` workflow/config files, and reject TOON for MCP envelopes, JSON Schema objects, provider outputs, and `.bridge-runs/*.jsonl`.
+
+Follow-up implementation keeps that boundary and adds `contractFormat: "toon"` as an explicit user choice for agent-to-agent workflow context. This lets users test token-efficiency gains in prompts without changing the default runtime contract or external MCP JSON envelopes.
 
 ## Next Experiment
 

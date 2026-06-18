@@ -4,12 +4,15 @@
 
 Implemented TOON as an opt-in input file format for workflows and route configs. JSON remains the canonical in-memory and external MCP representation. The implementation decodes `.toon` to plain JavaScript values, then reuses the existing Zod and AJV validation paths.
 
+The follow-up implementation adds `contractFormat: "json" | "toon"` so users can choose how object-valued context is rendered between workflow agent phases. JSON remains the default; TOON is opt-in for token-efficiency experiments.
+
 Do not return TOON from MCP tools, do not store run logs as TOON, and do not ask providers to emit TOON in v1.
 
 ## Goals
 
 - Allow `run_workflow.workflowPath` to point at `.toon` files.
 - Allow `routeConfigPath` to point at `.toon` route configs.
+- Allow users to set `contractFormat: "toon"` for agent-to-agent prompt context.
 - Preserve all existing `.json` workflows, route configs, tests, and docs.
 - Keep JSON Schema validation unchanged by validating decoded objects.
 - Provide clear parse errors that name the file and detected format.

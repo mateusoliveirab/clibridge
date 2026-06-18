@@ -30,6 +30,7 @@ Input:
   "cwd": "/path/to/repository",
   "task": "fix wrap prepare-only path",
   "dryRun": true,
+  "contractFormat": "toon",
   "inputs": {
     "changeType": "bugfix",
     "publishTarget": "pr",
@@ -41,9 +42,13 @@ Input:
 
 The executor loads `workflowPath`, runs phases in order, records run-state under the target `cwd`, and returns structured phase results.
 
+`contractFormat` is optional and defaults to `json`. When set to `toon`, object-valued template variables in agent prompts, such as `{{inputs}}` or `{{results}}`, render as TOON instead of pretty JSON. Shell command templates keep JSON-style rendering to avoid changing command semantics.
+
 ## Workflow File Shape
 
 Workflow files may be encoded as `.json` or `.toon`. Both formats decode into the same internal JSON-compatible object model before Zod validation and execution. JSON remains the canonical documented format; TOON is an opt-in input representation for workflow and route config files only.
+
+Workflow files may also set a top-level `contractFormat` of `json` or `toon`. A `run_workflow` input value overrides the file default.
 
 The current workflow object format supports these phase kinds:
 

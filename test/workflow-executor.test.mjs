@@ -170,6 +170,162 @@ test('runWorkflow renders template variables in shell commands', async () => {
   }
 })
 
+test('runWorkflow renders agent contract objects as TOON when requested', async () => {
+  const dir = tempDir()
+  const prompts = []
+  try {
+    const workflowPath = path.join(dir, 'workflow.json')
+    writeJson(workflowPath, {
+      name: 'toon-contract-workflow',
+      phases: [
+        {
+          name: 'plan',
+          kind: 'agent',
+          provider: 'mock',
+          prompt: 'Inputs:\n{{inputs}}',
+        },
+      ],
+    })
+
+    const result = await runWorkflow({
+      workflowPath,
+      cwd: dir,
+      task: 'contract',
+      inputs: {
+        changeType: 'feature',
+        publishTarget: 'pr',
+      },
+      contractFormat: 'toon',
+    }, {
+      adapters: {
+        mock: async (request) => {
+          prompts.push(request.prompt)
+          return {
+            ok: true,
+            runId: request.runId,
+            provider: request.provider,
+            phase: request.phase,
+            label: request.label,
+            durationMs: 1,
+            attempts: 1,
+            structured: false,
+            text: 'ok',
+            usage: {},
+            artifacts: [],
+            warnings: [],
+          }
+        },
+      },
+    })
+
+    assert.equal(result.ok, true)
+    assert.match(prompts[0], /changeType: feature/)
+    assert.match(prompts[0], /publishTarget: pr/)
+    assert.doesNotMatch(prompts[0], /"changeType"/)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('runWorkflow stores structured phase results using the selected contract format', async () => {
+  const dir = tempDir()
+  const prompts = []
+  try {
+    const workflowPath = path.join(dir, 'workflow.json')
+    writeJson(workflowPath, {
+      name: 'structured-toon-contract',
+      contractFormat: 'toon',
+      phases: [
+        {
+          name: 'extract',
+          kind: 'agent',
+          provider: 'mock',
+          schema: {
+            type: 'object',
+            required: ['items'],
+            properties: {
+              items: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  required: ['name', 'score'],
+                  properties: {
+                    name: { type: 'string' },
+                    score: { type: 'number' },
+                  },
+                },
+              },
+            },
+          },
+          prompt: 'extract',
+        },
+        {
+          name: 'review',
+          kind: 'agent',
+          provider: 'mock',
+          prompt: 'Previous:\n{{results.extract}}',
+        },
+      ],
+    })
+
+    const result = await runWorkflow({
+      workflowPath,
+      cwd: dir,
+      task: 'contract',
+    }, {
+      adapters: {
+        mock: async (request) => {
+          prompts.push(request.prompt)
+          if (request.phase === 'extract') {
+            return {
+              ok: true,
+              runId: request.runId,
+              provider: request.provider,
+              phase: request.phase,
+              label: request.label,
+              durationMs: 1,
+              attempts: 1,
+              structured: true,
+              data: {
+                items: [
+                  { name: 'alpha', score: 1 },
+                  { name: 'beta', score: 2 },
+                ],
+              },
+              text: '',
+              usage: {},
+              artifacts: [],
+              warnings: [],
+            }
+          }
+          return {
+            ok: true,
+            runId: request.runId,
+            provider: request.provider,
+            phase: request.phase,
+            label: request.label,
+            durationMs: 1,
+            attempts: 1,
+            structured: false,
+            text: 'reviewed',
+            usage: {},
+            artifacts: [],
+            warnings: [],
+          }
+        },
+      },
+    })
+
+    assert.equal(result.ok, true)
+    assert.match(result.results.extract, /items\[2\]\{name,score\}:/)
+    assert.match(result.results.extract, /alpha,1/)
+    assert.match(prompts[1], /items\[2\]\{name,score\}:/)
+    assert.doesNotMatch(prompts[1], /"items"/)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('Headroom workflow blocks architecture PR work without issue or maintainer approval', async () => {
   const dir = tempDir()
   try {

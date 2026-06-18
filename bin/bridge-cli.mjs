@@ -62,6 +62,8 @@ Commands:
                           --task <prompt>       Set the main task/prompt for the workflow.
                           --dry-run             Run in dry-run mode (does not mutate files).
                           --inputs <json>       JSON string of workflow input variables.
+                          --contract-format <format>
+                                                Render agent-to-agent object context as json or toon.
   help                  Show this help menu.
 `)
 }
@@ -125,6 +127,7 @@ async function runWorkflowCmd() {
   let task = ''
   let dryRun = false
   let inputs = {}
+  let contractFormat
 
   for (let i = 2; i < args.length; i++) {
     if (args[i] === '--cwd') {
@@ -138,6 +141,13 @@ async function runWorkflowCmd() {
     } else if (args[i] === '--inputs') {
       inputs = JSON.parse(args[i + 1])
       i++
+    } else if (args[i] === '--contract-format') {
+      contractFormat = args[i + 1]
+      if (!['json', 'toon'].includes(contractFormat)) {
+        console.error('Error: --contract-format must be "json" or "toon"')
+        process.exit(1)
+      }
+      i++
     }
   }
 
@@ -150,6 +160,7 @@ async function runWorkflowCmd() {
   console.log(`Cwd: ${cwd}`)
   console.log(`Task: ${task}`)
   console.log(`Dry-run: ${dryRun}`)
+  if (contractFormat) console.log(`Contract format: ${contractFormat}`)
 
   try {
     const result = await runWorkflow({
@@ -158,6 +169,7 @@ async function runWorkflowCmd() {
       task,
       dryRun,
       inputs,
+      contractFormat,
       dangerouslySkipPermissions: true
     })
 

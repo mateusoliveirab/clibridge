@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { z } from 'zod'
+import { encode as encodeToon } from '@toon-format/toon'
 import { runAgent } from '../broker/run-agent.ts'
 import { defaultAdapters } from '../adapters/registry.ts'
 import { loadJsonConfig } from '../config/load-config.ts'
@@ -20,6 +21,7 @@ export const RunWorkflowInputSchema = z.object({
   inputs: z.record(z.string(), z.unknown()).default({}),
   routeConfigPath: z.string().optional(),
   dangerouslySkipPermissions: z.boolean().optional(),
+  contractFormat: z.enum(['json', 'toon']).optional(),
 })
 
 const ConditionSchema = z.object({
@@ -63,6 +65,7 @@ const PhaseSchema = z.object({
 const WorkflowFileSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
+  contractFormat: z.enum(['json', 'toon']).optional(),
   inputDefaults: z.record(z.string(), z.unknown()).default({}),
   phases: z.array(PhaseSchema),
 })
@@ -102,6 +105,7 @@ export async function runWorkflow(
 ): Promise<WorkflowRunResult> {
   const input = RunWorkflowInputSchema.parse(rawInput)
   const workflow = loadWorkflowFile(input.workflowPath)
+  const contractFormat = input.contractFormat || workflow.contractFormat || 'json'
   const runId = newRunId(workflow.name)
   const inputs = { ...workflow.inputDefaults, ...input.inputs }
   const phaseResults: WorkflowPhaseResult[] = []
@@ -132,6 +136,7 @@ export async function runWorkflow(
         const text = await executePhase(phase, {
           input,
           workflow,
+          contractFormat,
           inputs,
           results,
           provider,
@@ -214,6 +219,7 @@ async function executePhase(
   context: {
     input: RunWorkflowInput
     workflow: WorkflowFile
+    contractFormat: ContractFormat
     inputs: Record<string, unknown>
     results: Record<string, string>
     provider?: string
@@ -230,6 +236,8 @@ async function executePhase(
   if (phase.kind === 'shell') return shellPhase(phase, context)
   return agentPhase(phase, context)
 }
+
+type ContractFormat = 'json' | 'toon'
 
 function readFilesPhase(phase: WorkflowPhase, cwd: string): string {
   const maxBytes = phase.maxBytes || 12000
@@ -316,6 +324,7 @@ async function agentPhase(
   context: {
     input: RunWorkflowInput
     workflow: WorkflowFile
+    contractFormat: ContractFormat
     inputs: Record<string, unknown>
     results: Record<string, string>
     provider?: string
@@ -328,7 +337,7 @@ async function agentPhase(
     cwd: context.input.cwd,
     inputs: context.inputs,
     results: context.results,
-  })
+  }, context.contractFormat)
 
   const result: Envelope = await runAgent({
     workflow: context.workflow.name,
@@ -352,6 +361,9 @@ async function agentPhase(
   if (!result.ok) {
     throw new Error(`${phase.name} failed: ${result.errorCode} ${result.message}`)
   }
+  if (result.structured) {
+    return formatContractValue(result.data, context.contractFormat)
+  }
   return result.text
 }
 
@@ -366,13 +378,22 @@ function resolvePhaseProvider(phase: WorkflowPhase, adapters?: Record<string, Ad
   }
 }
 
-function renderTemplate(template: string, context: Record<string, unknown>): string {
+function renderTemplate(
+  template: string,
+  context: Record<string, unknown>,
+  contractFormat: ContractFormat = 'json',
+): string {
   return template.replace(/{{\s*([^}]+)\s*}}/g, (_match, expression: string) => {
     const value = getPath(context, expression.trim())
     if (value === undefined || value === null) return ''
     if (typeof value === 'string') return value
-    return JSON.stringify(value, null, 2)
+    return formatContractValue(value, contractFormat)
   })
+}
+
+function formatContractValue(value: unknown, contractFormat: ContractFormat): string {
+  if (contractFormat === 'toon') return encodeToon(value)
+  return JSON.stringify(value, null, 2)
 }
 
 function getPath(source: Record<string, unknown>, expression: string): unknown {

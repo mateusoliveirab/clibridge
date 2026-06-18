@@ -71,6 +71,7 @@ Required in `npm test`:
 - Structured loader unit tests.
 - Workflow `.toon` dry-run execution.
 - Route config `.toon` provider selection.
+- `contractFormat: "toon"` prompt rendering for `{{inputs}}`, `{{results}}`, and structured phase results.
 - JSON regression tests.
 
 Optional live validation:

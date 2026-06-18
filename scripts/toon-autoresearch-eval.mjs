@@ -163,6 +163,8 @@ const markdown = [
   '',
   'The measured corpus does not justify making TOON default. The safe ratchet is narrower: keep the v1 implementation scoped to opt-in `.toon` workflow/config files, and reject TOON for MCP envelopes, JSON Schema objects, provider outputs, and `.bridge-runs/*.jsonl`.',
   '',
+  'Follow-up implementation keeps that boundary and adds `contractFormat: "toon"` as an explicit user choice for agent-to-agent workflow context. This lets users test token-efficiency gains in prompts without changing the default runtime contract or external MCP JSON envelopes.',
+  '',
   '## Next Experiment',
   '',
   'Implement only the parser boundary and two `.toon` fixtures, then rerun this script plus `npm test`. Accept the implementation only if all JSON regressions pass and the TOON fixtures round-trip losslessly.',
