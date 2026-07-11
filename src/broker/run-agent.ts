@@ -17,6 +17,13 @@ export interface RunAgentOptions {
   config?: BridgeConfig
   loadAgent?: boolean
   dangerouslySkipPermissions?: boolean
+  /**
+   * Allow `access: 'read-only'` on providers without sandbox support. Only for
+   * callers with their own compensating enforcement (the workflow executor
+   * snapshots git state around each phase and fails on mutations). Direct
+   * run_agent callers get no such guarantee, so the broker rejects instead.
+   */
+  allowUnenforcedAccess?: boolean
 }
 
 // Maps each required capability to the error raised when the chosen provider
@@ -28,6 +35,27 @@ const CAPABILITY_ERROR: Record<RequiredCapability, { code: string; label: string
   sandbox: { code: ErrorCode.UNSUPPORTED_SANDBOX, label: 'sandbox isolation' },
   skipPermissions: { code: ErrorCode.PERMISSION_DENIED, label: 'unattended skip-permissions' },
 })
+
+// Maps `access: 'read-only'` onto the provider's sandbox when supported, and
+// otherwise rejects: without a sandbox the CLI runs with full write access, so
+// silently accepting read-only would be a false guarantee. Callers with their
+// own compensating enforcement opt out via `allowUnenforcedAccess`.
+function applyReadOnlyAccessGuard(
+  request: ResolvedRequest,
+  adapter: ProviderAdapter,
+  options: RunAgentOptions,
+): ResolvedRequest {
+  if (request.access !== 'read-only' || request.sandbox) return request
+  if (adapter.capabilities.sandbox) return { ...request, sandbox: 'read-only' }
+  if (!options.allowUnenforcedAccess) {
+    throw new BridgeError(
+      ErrorCode.UNSUPPORTED_SANDBOX,
+      `Provider '${request.provider}' cannot enforce read-only access (no sandbox support).`,
+      { details: { provider: request.provider, capability: 'sandbox' } },
+    )
+  }
+  return request
+}
 
 function assertProviderSupports(adapter: ProviderAdapter, request: ResolvedRequest): void {
   for (const capability of requiredCapabilities(request)) {
@@ -84,9 +112,7 @@ export async function runAgent(input: AgentInput, options: RunAgentOptions = {})
     }
 
     const adapter = resolveAdapterEntry(adapterEntry)
-    if (request.access === 'read-only' && !request.sandbox && adapter.capabilities.sandbox) {
-      request = { ...request, sandbox: 'read-only' }
-    }
+    request = applyReadOnlyAccessGuard(request, adapter, options)
 
     // Reject requests the chosen provider can't satisfy (e.g. a schema for a
     // text-only CLI) before dispatch, with a precise UNSUPPORTED_* code.
@@ -135,12 +161,20 @@ export async function runAgent(input: AgentInput, options: RunAgentOptions = {})
           try {
             const fallbackAdapterEntry = adapters[fallbackProvider]
             const fallbackAdapter = resolveAdapterEntry(fallbackAdapterEntry)
-            const fallbackRequest = {
+            // Drop the primary provider's derived sandbox and re-derive it for
+            // this provider, so a read-only guarantee is enforced (or the
+            // candidate rejected) rather than silently carried over.
+            const fallbackRequest = applyReadOnlyAccessGuard({
               ...request,
               provider: fallbackProvider,
               model: undefined, // Let fallback use its default model
-            }
+              sandbox: route.sandbox || input.sandbox,
+            }, fallbackAdapter, options)
 
+            // Re-run the same pre-dispatch checks as the primary provider; a
+            // failure throws into the per-candidate catch and skips to the
+            // next fallback instead of dispatching an unsupported request.
+            assertProviderSupports(fallbackAdapter, fallbackRequest)
             await assertProviderCommandAvailable(fallbackProvider, fallbackAdapterEntry)
 
             const fMaxAttempts = fallbackRequest.maxRetries + 1
