@@ -4,6 +4,8 @@
 
 import { z } from 'zod'
 
+export const AccessModeSchema = z.enum(['read-only', 'workspace-write', 'unrestricted'])
+
 export const AttachmentSchema = z.object({
   type: z.string(),
   path: z.string(),
@@ -34,11 +36,12 @@ export const AgentInputSchema = z.object({
   addDirs: z.array(z.string()).optional(),
   envAllowlist: z.array(z.string()).optional(),
   disableFallback: z.boolean().optional(),
-  access: z.enum(['read-only', 'workspace-write', 'unrestricted']).optional(),
+  access: AccessModeSchema.optional(),
 })
 
 export type Attachment = z.infer<typeof AttachmentSchema>
 export type AgentInput = z.infer<typeof AgentInputSchema>
+export type AccessMode = z.infer<typeof AccessModeSchema>
 
 
 /** A routing rule from config: match criteria plus the overrides it applies. */
