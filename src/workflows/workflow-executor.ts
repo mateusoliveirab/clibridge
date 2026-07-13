@@ -10,7 +10,8 @@ import { loadJsonConfig } from '../config/load-config.ts'
 import { loadStructuredDataFileSync } from '../config/structured-data.ts'
 import { newRunId, startRun, phaseStart, phaseEnd, endRun } from './run-state.ts'
 import { resolveRole } from './roles.ts'
-import type { BridgeConfig, Envelope } from '../types.ts'
+import { AccessModeSchema } from '../types.ts'
+import type { AccessMode, BridgeConfig, Envelope } from '../types.ts'
 import type { AdapterEntry } from '../adapters/contract.ts'
 import type { RoleDemand } from './workflow-types.ts'
 
@@ -45,6 +46,12 @@ const AssertionSchema = z.object({
   message: z.string().optional(),
 })
 
+const ExecutionPolicyFields = {
+  access: AccessModeSchema.optional(),
+  allowedWritePaths: z.array(z.string()).optional(),
+  allowDangerousPermissions: z.boolean().optional(),
+}
+
 const PhaseSchema = z.object({
   name: z.string(),
   kind: z.enum(['agent', 'shell', 'read-files', 'policy']).default('agent'),
@@ -60,9 +67,7 @@ const PhaseSchema = z.object({
   files: z.array(z.string()).optional(),
   maxBytes: z.number().int().positive().optional(),
   skipPermissions: z.boolean().optional(),
-  access: z.enum(['read-only', 'workspace-write', 'unrestricted']).optional(),
-  allowedWritePaths: z.array(z.string()).optional(),
-  allowDangerousPermissions: z.boolean().optional(),
+  ...ExecutionPolicyFields,
   skipIf: ConditionSchema.optional(),
   assertions: z.array(AssertionSchema).optional(),
 })
@@ -71,9 +76,7 @@ const WorkflowFileSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
   contractFormat: z.enum(['json', 'toon']).optional(),
-  access: z.enum(['read-only', 'workspace-write', 'unrestricted']).optional(),
-  allowedWritePaths: z.array(z.string()).optional(),
-  allowDangerousPermissions: z.boolean().optional(),
+  ...ExecutionPolicyFields,
   inputDefaults: z.record(z.string(), z.unknown()).default({}),
   phases: z.array(PhaseSchema),
 })
@@ -81,7 +84,6 @@ const WorkflowFileSchema = z.object({
 export type RunWorkflowInput = z.infer<typeof RunWorkflowInputSchema>
 type WorkflowFile = z.infer<typeof WorkflowFileSchema>
 type WorkflowPhase = z.infer<typeof PhaseSchema>
-type AccessMode = 'read-only' | 'workspace-write' | 'unrestricted'
 
 interface ExecutionPolicy {
   access: AccessMode
@@ -437,11 +439,16 @@ function assertDangerousPermissionsAllowed(
 
 function beginMutationSnapshot(cwd: string, policy: ExecutionPolicy): MutationSnapshot | null {
   if (policy.access === 'unrestricted') return null
-  if (!isGitRepository(cwd)) return null
-  return {
-    files: snapshotChangedFiles(cwd),
-    head: gitRevParse(cwd, 'HEAD'),
-    stashRef: gitRevParse(cwd, 'refs/stash'),
+  // workspace-write with no path restrictions never violates — skip the audit.
+  if (policy.access === 'workspace-write' && !policy.allowedWritePaths.length) return null
+  try {
+    return {
+      files: snapshotChangedFiles(cwd),
+      head: gitRevParse(cwd, 'HEAD'),
+      stashRef: gitRevParse(cwd, 'refs/stash'),
+    }
+  } catch {
+    return null // not a git repository — nothing to audit against
   }
 }
 
@@ -481,15 +488,6 @@ function assertMutationPolicy(cwd: string, policy: ExecutionPolicy, before: Muta
         `Execution policy violation: phase changed files outside allowedWritePaths: ${disallowed.join(', ')}`
       )
     }
-  }
-}
-
-function isGitRepository(cwd: string): boolean {
-  try {
-    execFileSync('git', ['-C', cwd, 'rev-parse', '--is-inside-work-tree'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
-    return true
-  } catch {
-    return false
   }
 }
 
@@ -543,8 +541,12 @@ function listGitStatusPaths(cwd: string): string[] {
 
 function fileFingerprint(cwd: string, file: string): string {
   const filePath = path.join(cwd, file)
-  if (!fs.existsSync(filePath)) return '<deleted>'
-  const stat = fs.statSync(filePath)
+  let stat: fs.Stats
+  try {
+    stat = fs.statSync(filePath)
+  } catch {
+    return '<deleted>'
+  }
   if (!stat.isFile()) return `<${stat.isDirectory() ? 'dir' : 'special'}>`
   return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex')
 }
@@ -557,30 +559,7 @@ function changedSince(before: Map<string, string>, after: Map<string, string>): 
 }
 
 function matchesAnyAllowedPath(file: string, allowedPaths: string[]): boolean {
-  return allowedPaths.some(pattern => globToRegExp(pattern).test(normalizeRepoPath(file)))
-}
-
-function globToRegExp(pattern: string): RegExp {
-  const normalized = normalizeRepoPath(pattern)
-  let source = ''
-  for (let index = 0; index < normalized.length; index++) {
-    const char = normalized[index]!
-    if (char === '*') {
-      if (normalized[index + 1] === '*') {
-        source += '.*'
-        index += 1
-      } else {
-        source += '[^/]*'
-      }
-      continue
-    }
-    source += escapeRegExp(char)
-  }
-  return new RegExp(`^${source}$`)
-}
-
-function escapeRegExp(char: string): string {
-  return /[\\^$+?.()|[\]{}]/.test(char) ? `\\${char}` : char
+  return allowedPaths.some(pattern => path.matchesGlob(normalizeRepoPath(file), normalizeRepoPath(pattern)))
 }
 
 function normalizeRepoPath(file: string): string {

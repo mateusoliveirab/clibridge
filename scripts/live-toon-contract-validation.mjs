@@ -159,8 +159,7 @@ function buildWorkflow(provider, supportsSkipPermissions) {
         kind: 'agent',
         provider,
         access: 'read-only',
-        ...(supportsSkipPermissions ? { skipPermissions: true } : {}),
-        ...(supportsSkipPermissions ? { allowDangerousPermissions: true } : {}),
+        ...(supportsSkipPermissions ? { skipPermissions: true, allowDangerousPermissions: true } : {}),
         prompt: [
           'Validate the workflow context contract below.',
           `Reply exactly ${PASS_TOKEN} if the block is TOON and contains ${EXPECTED_MARKER}.`,
