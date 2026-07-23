@@ -3,6 +3,10 @@ import type { AgentInput, BridgeConfig, Route } from '../types.ts'
 
 type MatchField = 'label' | 'agentType' | 'phase' | 'model'
 
+// `model` here only filters candidate routes (request.model must equal it).
+// Forcing a different dispatched model is a separate override field,
+// Route.useModel, applied by the caller (see run-agent.ts) — never derived
+// from this match field, so a route can match on one model and force another.
 const MATCH_FIELDS: MatchField[] = ['label', 'agentType', 'phase', 'model']
 
 export type SelectedRoute = Route & { provider: string }

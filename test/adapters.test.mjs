@@ -267,6 +267,43 @@ test('runGemini appends --dangerously-skip-permissions when skip-permissions is 
   assert.ok(capturedArgs.includes('--dangerously-skip-permissions'))
 })
 
+test('runGemini uses GEMINI_MODEL env override when request.model is absent', async () => {
+  let capturedArgs
+  const mockRunProcess = async (cmd, args) => {
+    capturedArgs = args
+    return { stdout: 'OK', stderr: '', durationMs: 5 }
+  }
+
+  const previous = process.env.GEMINI_MODEL
+  process.env.GEMINI_MODEL = 'Gemini 4.0 Flash'
+  try {
+    await runGemini({ prompt: 'hello', cwd: '/workspace/dir' }, mockRunProcess)
+    assert.ok(capturedArgs.includes('Gemini 4.0 Flash'))
+  } finally {
+    if (previous === undefined) delete process.env.GEMINI_MODEL
+    else process.env.GEMINI_MODEL = previous
+  }
+})
+
+test('runGemini prefers request.model over GEMINI_MODEL env override', async () => {
+  let capturedArgs
+  const mockRunProcess = async (cmd, args) => {
+    capturedArgs = args
+    return { stdout: 'OK', stderr: '', durationMs: 5 }
+  }
+
+  const previous = process.env.GEMINI_MODEL
+  process.env.GEMINI_MODEL = 'Gemini 4.0 Flash'
+  try {
+    await runGemini({ prompt: 'hello', cwd: '/workspace/dir', model: 'Gemini Explicit' }, mockRunProcess)
+    assert.ok(capturedArgs.includes('Gemini Explicit'))
+    assert.ok(!capturedArgs.includes('Gemini 4.0 Flash'))
+  } finally {
+    if (previous === undefined) delete process.env.GEMINI_MODEL
+    else process.env.GEMINI_MODEL = previous
+  }
+})
+
 test('runOpenCode builds correct arguments with addDir and addDirs', async () => {
   let capturedArgs
   const mockRunProcess = async (cmd, args, options) => {

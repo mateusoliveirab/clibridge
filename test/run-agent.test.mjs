@@ -555,3 +555,142 @@ test('runAgent does not fall back when disableFallback is true', async () => {
   assert.equal(result.errorCode, ErrorCode.PROCESS_EXIT_NONZERO)
   assert.equal(result.provider, 'primary')
 })
+
+test('runAgent applies a route useModel override, ignoring request.model', async () => {
+  let seenRequest
+  const result = await runAgent({
+    workflow: 'w',
+    phase: 'Cheap',
+    label: 'cheap:iter1',
+    cwd,
+    prompt: 'go',
+    model: 'requested-model',
+  }, {
+    loadAgent: false,
+    config: {
+      defaultProvider: 'mock',
+      routes: [
+        { phase: 'Cheap', provider: 'mock', useModel: 'forced-model' },
+      ],
+    },
+    adapters: {
+      mock: async (request) => {
+        seenRequest = request
+        return successEnvelope(request)
+      },
+    },
+  })
+
+  assert.equal(result.ok, true)
+  assert.equal(seenRequest.model, 'forced-model')
+})
+
+test('selectRoute match-on-model still works when the route has no useModel override', async () => {
+  let seenRequest
+  const result = await runAgent({
+    workflow: 'w',
+    phase: 'Extract',
+    label: 'extract-conflict',
+    cwd,
+    prompt: 'go',
+    model: 'gpt-4o-mini',
+  }, {
+    loadAgent: false,
+    config: {
+      defaultProvider: 'default-mock',
+      routes: [
+        { model: 'gpt-4o-mini', provider: 'mock' },
+      ],
+    },
+    adapters: {
+      mock: async (request) => {
+        seenRequest = request
+        return successEnvelope(request)
+      },
+    },
+  })
+
+  assert.equal(result.ok, true)
+  assert.equal(result.provider, 'mock')
+  assert.equal(seenRequest.model, 'gpt-4o-mini')
+})
+
+test('runAgent resolves a BridgeConfig-declared adapter (config.adapters) by provider name', async () => {
+  const result = await runAgent({
+    workflow: 'w',
+    phase: 'Create',
+    label: 'l',
+    cwd,
+    prompt: 'go',
+  }, {
+    loadAgent: false,
+    config: {
+      defaultProvider: 'custom-cli',
+      adapters: {
+        'custom-cli': {
+          command: 'totally-nonexistent-cli-xyz',
+          capabilities: { structuredOutput: false, images: false, sandbox: false, skipPermissions: false },
+          args: [{ var: 'prompt' }],
+          output: { type: 'raw', trim: true },
+        },
+      },
+    },
+  })
+
+  // PROVIDER_UNAVAILABLE (not PROVIDER_NOT_FOUND) proves the config-declared
+  // adapter was resolved into the adapter map and reached the availability
+  // check, rather than real dispatch (no CLI is invoked) or unregistered rejection.
+  assert.equal(result.ok, false)
+  assert.equal(result.errorCode, 'PROVIDER_UNAVAILABLE')
+  assert.equal(result.provider, 'custom-cli')
+})
+
+test('runAgent lets explicit options.adapters win over a same-named config.adapters entry', async () => {
+  const result = await runAgent({
+    workflow: 'w',
+    phase: 'Create',
+    label: 'l',
+    cwd,
+    prompt: 'go',
+  }, {
+    loadAgent: false,
+    config: {
+      defaultProvider: 'custom-cli',
+      adapters: {
+        'custom-cli': {
+          command: 'totally-nonexistent-cli-xyz',
+          capabilities: { structuredOutput: false, images: false, sandbox: false, skipPermissions: false },
+          args: [{ var: 'prompt' }],
+          output: { type: 'raw', trim: true },
+        },
+      },
+    },
+    adapters: {
+      'custom-cli': async (request) => successEnvelope(request),
+    },
+  })
+
+  assert.equal(result.ok, true)
+  assert.equal(result.provider, 'custom-cli')
+})
+
+test('runAgent surfaces a clear error for a malformed config.adapters entry', async () => {
+  const result = await runAgent({
+    workflow: 'w',
+    phase: 'Create',
+    label: 'l',
+    cwd,
+    prompt: 'go',
+  }, {
+    loadAgent: false,
+    config: {
+      defaultProvider: 'broken-cli',
+      adapters: {
+        'broken-cli': { command: 'x' },
+      },
+    },
+  })
+
+  assert.equal(result.ok, false)
+  assert.match(result.message, /Invalid adapter config for 'broken-cli'/)
+})
