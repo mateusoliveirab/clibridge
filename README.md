@@ -346,6 +346,27 @@ This runs the reference `github-contribution` CLI workflow as a code architectur
 
 `clibridge` includes command-line tools to monitor executions and discover workflows dynamically:
 
+### Local Visual Console
+
+Start a project-local daemon and open the printed URL in a browser:
+
+```bash
+bridge serve --cwd /path/to/project
+```
+
+The console listens only on `127.0.0.1`, stores its SQLite ledger in
+`.clibridge/runs.db`, and shows run history, approval decisions, redacted
+output, provider markers, and a visual workflow studio. The Studio edits the
+same JSON or TOON files used by the executor; its canvas represents the
+runtime's sequential phase order.
+
+Two safe examples are included: `examples/console-smoke.workflow.json` and
+`examples/approval-gate.workflow.json` (use **dry run** for the latter).
+
+```bash
+bridge runs purge --days 30 --cwd /path/to/project
+```
+
 ### 1. Generic CLI (`bridge-cli`)
 Inspect and execute workflows natively:
 ```bash

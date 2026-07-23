@@ -18,6 +18,28 @@ function gitInit(dir) {
   execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' })
 }
 
+test('runWorkflow generates a unique runId of the form <workflow>-<ts>-<random> when none is provided', async () => {
+  const dir = tempDir()
+  try {
+    const workflowPath = path.join(dir, 'workflow.json')
+    writeJson(workflowPath, {
+      name: 'id-workflow',
+      phases: [{ name: 'noop', kind: 'policy', assertions: [] }],
+    })
+
+    const first = await runWorkflow({ workflowPath, cwd: dir, task: 'x' })
+    const second = await runWorkflow({ workflowPath, cwd: dir, task: 'x' })
+
+    assert.match(first.runId, /^id-workflow-\d+-[a-z0-9]+$/)
+    assert.notEqual(first.runId, second.runId)
+
+    const explicit = await runWorkflow({ workflowPath, cwd: dir, task: 'x', runId: 'fixed-id' })
+    assert.equal(explicit.runId, 'fixed-id')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('runWorkflow executes read-files, policy, agent dry-run, and shell dry-run phases', async () => {
   const dir = tempDir()
   try {

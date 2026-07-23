@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { runWorkflow } from '../dist/workflows/workflow-executor.js'
+import { runWorkflowThroughDaemon as runWorkflow, daemonFor } from '../dist/daemon/client.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const workflowsConfigPath = path.join(__dirname, '..', 'dist', 'workflows', 'workflows-config.json')
@@ -67,6 +67,8 @@ Commands:
                           --timeout-ms <ms>     Timeout passed to agent phases.
                           --dangerously-skip-permissions
                                                 Skip permission prompts in provider CLIs (e.g. claude).
+                          --approve             Pre-approve any gated (risky) phase for this run
+                                                instead of waiting on the console.
   help                  Show this help menu.
 `)
 }
@@ -133,6 +135,7 @@ async function runWorkflowCmd() {
   let contractFormat
   let timeoutMs
   let dangerouslySkipPermissions = false
+  let approve = false
 
   for (let i = 2; i < args.length; i++) {
     if (args[i] === '--cwd') {
@@ -162,6 +165,8 @@ async function runWorkflowCmd() {
       i++
     } else if (args[i] === '--dangerously-skip-permissions') {
       dangerouslySkipPermissions = true
+    } else if (args[i] === '--approve') {
+      approve = true
     }
   }
 
@@ -177,8 +182,21 @@ async function runWorkflowCmd() {
   if (contractFormat) console.log(`Contract format: ${contractFormat}`)
   if (timeoutMs) console.log(`Timeout: ${timeoutMs}ms`)
   console.log(`Dangerously skip permissions: ${dangerouslySkipPermissions}`)
+  console.log(`Approve: ${approve}`)
 
   try {
+    // Subscribe to this project's daemon events before kicking off the run so
+    // we can surface the "awaiting_approval" hint while the run is in flight.
+    // runWorkflow() resolves to the same cached daemon instance (same cwd).
+    const daemon = await daemonFor(cwd)
+    const onEvent = (event) => {
+      if (event.type === 'run.awaiting_approval') {
+        console.log(`\nRun is awaiting approval (phase: ${event.payload.phase}, reason: ${event.payload.reason}).`)
+        console.log('Approve it from the console, or rerun this command with --approve.')
+      }
+    }
+    daemon.events.on('event', onEvent)
+
     const result = await runWorkflow({
       workflowPath,
       cwd,
@@ -188,7 +206,9 @@ async function runWorkflowCmd() {
       contractFormat,
       timeoutMs,
       dangerouslySkipPermissions
-    })
+    }, { autoApprove: approve })
+
+    daemon.events.off('event', onEvent)
 
     console.log('\n======================================')
     console.log('Workflow Finished. Result:')

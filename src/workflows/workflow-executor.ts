@@ -8,7 +8,6 @@ import { runAgent } from '../broker/run-agent.ts'
 import { defaultAdapters } from '../adapters/registry.ts'
 import { loadJsonConfig } from '../config/load-config.ts'
 import { loadStructuredDataFileSync } from '../config/structured-data.ts'
-import { newRunId, startRun, phaseStart, phaseEnd, endRun } from './run-state.ts'
 import { resolveRole } from './roles.ts'
 import { AccessModeSchema } from '../types.ts'
 import type { AccessMode, BridgeConfig, Envelope } from '../types.ts'
@@ -16,6 +15,7 @@ import type { AdapterEntry } from '../adapters/contract.ts'
 import type { RoleDemand } from './workflow-types.ts'
 
 export const RunWorkflowInputSchema = z.object({
+  runId: z.string().optional(),
   workflowPath: z.string(),
   cwd: z.string(),
   task: z.string(),
@@ -78,7 +78,7 @@ const PhaseSchema = z.object({
   assertions: z.array(AssertionSchema).optional(),
 })
 
-const WorkflowFileSchema = z.object({
+export const WorkflowFileSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
   contractFormat: z.enum(['json', 'toon']).optional(),
@@ -91,6 +91,12 @@ const WorkflowFileSchema = z.object({
 export type RunWorkflowInput = z.infer<typeof RunWorkflowInputSchema>
 type WorkflowFile = z.infer<typeof WorkflowFileSchema>
 type WorkflowPhase = z.infer<typeof PhaseSchema>
+
+function newRunId(workflow: string): string {
+  const ts = Date.now()
+  const random = Math.random().toString(36).substring(2, 8)
+  return `${workflow}-${ts}-${random}`
+}
 
 interface ExecutionPolicy {
   access: AccessMode
@@ -129,6 +135,18 @@ export interface WorkflowRunResult {
 export interface RunWorkflowOptions {
   adapters?: Record<string, AdapterEntry>
   config?: BridgeConfig
+  observer?: WorkflowRunObserver
+}
+
+/** Optional lifecycle bridge used by the local daemon.  Keeping it optional
+ * preserves the library and CLI contract for embedders. */
+export interface WorkflowRunObserver {
+  runStart?(event: { runId: string; workflow: string; description: string; phases: string[]; cwd: string; runsDir?: string }): Promise<void> | void
+  phaseStart?(event: { runId: string; phase: string; phaseIndex: number; provider: string }): Promise<void> | void
+  phaseEnd?(event: { runId: string; phase: string; ok: boolean; durationMs: number; text?: string; error?: string }): Promise<void> | void
+  runEnd?(event: { runId: string; ok: boolean; error?: string }): Promise<void> | void
+  beforePhase?(event: { runId: string; workflow: string; phase: WorkflowPhase; cwd: string; provider?: string; policy: ExecutionPolicy }): Promise<void> | void
+  assertNotCancelled?(runId: string): Promise<void> | void
 }
 
 export async function runWorkflow(
@@ -138,7 +156,7 @@ export async function runWorkflow(
   const input = RunWorkflowInputSchema.parse(rawInput)
   const workflow = loadWorkflowFile(input.workflowPath)
   const contractFormat = input.contractFormat || workflow.contractFormat || 'json'
-  const runId = newRunId(workflow.name)
+  const runId = input.runId || newRunId(workflow.name)
   const inputs = { ...workflow.inputDefaults, ...input.inputs }
   const phaseResults: WorkflowPhaseResult[] = []
   const results: Record<string, string> = {}
@@ -147,11 +165,12 @@ export async function runWorkflow(
     ? await loadJsonConfig(input.routeConfigPath)
     : (options.config || {})
 
-  startRun({
+  await options.observer?.runStart?.({
     runId,
     workflow: workflow.name,
     description: input.task,
     phases: workflow.phases.map(phase => phase.name),
+    cwd: input.cwd,
     runsDir,
   })
 
@@ -160,7 +179,7 @@ export async function runWorkflow(
       const phase = workflow.phases[index]!
       const phaseName = phase.name as string
       const provider = phase.kind === 'agent'
-        ? resolvePhaseProvider(phase, options.adapters)
+        ? resolvePhaseProvider(phase, options.adapters, config)
         : undefined
       const providerLabel = provider || 'local'
       const startedAt = Date.now()
@@ -169,6 +188,10 @@ export async function runWorkflow(
       let before: MutationSnapshot | null = null
 
       try {
+        await options.observer?.assertNotCancelled?.(runId)
+        await options.observer?.beforePhase?.({ runId, workflow: workflow.name, phase, cwd: input.cwd, provider: providerLabel, policy })
+        await options.observer?.assertNotCancelled?.(runId)
+        await options.observer?.phaseStart?.({ runId, phase: phaseName, phaseIndex: index, provider: providerLabel })
         assertDangerousPermissionsAllowed(phase, input, policy)
         before = beginMutationSnapshot(input.cwd, policy)
         const text = await executePhase(phase, {
@@ -186,6 +209,7 @@ export async function runWorkflow(
         const durationMs = Date.now() - startedAt
         results[phaseName] = text
         phaseEnd(runId, phaseName, true, durationMs, { runsDir })
+        await options.observer?.phaseEnd?.({ runId, phase: phaseName, ok: true, durationMs, text })
         phaseResults.push({
           name: phaseName,
           kind: phase.kind,
@@ -203,6 +227,7 @@ export async function runWorkflow(
           message = `${(policyError as Error).message}\nOriginal phase error: ${message}`
         }
         phaseEnd(runId, phaseName, false, durationMs, { runsDir })
+        await options.observer?.phaseEnd?.({ runId, phase: phaseName, ok: false, durationMs, error: message })
         phaseResults.push({
           name: phaseName,
           kind: phase.kind,
@@ -213,6 +238,7 @@ export async function runWorkflow(
           error: message,
         })
         endRun(runId, false, { runsDir })
+        await options.observer?.runEnd?.({ runId, ok: false, error: message })
         return {
           ok: false,
           runId,
@@ -226,6 +252,7 @@ export async function runWorkflow(
     }
 
     endRun(runId, true, { runsDir })
+    await options.observer?.runEnd?.({ runId, ok: true })
     return {
       ok: true,
       runId,
@@ -236,6 +263,7 @@ export async function runWorkflow(
     }
   } catch (error) {
     endRun(runId, false, { runsDir })
+    await options.observer?.runEnd?.({ runId, ok: false, error: (error as Error).message })
     return {
       ok: false,
       runId,
@@ -680,12 +708,12 @@ function normalizeRepoPath(file: string): string {
   return file.replace(/\\/g, '/').replace(/^\.\/+/, '')
 }
 
-function resolvePhaseProvider(phase: WorkflowPhase, adapters?: Record<string, AdapterEntry>): string | undefined {
+function resolvePhaseProvider(phase: WorkflowPhase, adapters?: Record<string, AdapterEntry>, config?: BridgeConfig): string | undefined {
   if (phase.provider) return phase.provider
   if (!phase.demand) return undefined
 
   try {
-    return resolveRole(phase.demand as RoleDemand, (adapters || defaultAdapters) as any)
+    return resolveRole(phase.demand as RoleDemand, (adapters || defaultAdapters) as any, config)
   } catch {
     return undefined
   }

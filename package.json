@@ -22,12 +22,13 @@
   },
   "homepage": "https://github.com/mateusoliveirab/clibridge#readme",
   "bin": {
+    "bridge": "./bin/bridge.mjs",
     "bridge-cli": "./bin/bridge-cli.mjs",
     "bridge-contribute": "./bin/bridge-contribute.mjs",
     "bridge-monitor": "./bin/bridge-monitor.mjs"
   },
   "scripts": {
-    "build": "esbuild src/mcp-server.ts src/workflows/workflow-executor.ts src/workflows/run-state.ts --bundle --platform=node --format=esm --outdir=dist --packages=external && mkdir -p dist/workflows && cp src/workflows/workflows-config.json dist/workflows/workflows-config.json",
+    "build": "esbuild src/mcp-server.ts src/workflows/workflow-executor.ts src/daemon/serve.ts src/daemon/ledger.ts src/daemon/client.ts --bundle --platform=node --format=esm --outdir=dist --packages=external && vite build && mkdir -p dist/workflows && cp src/workflows/workflows-config.json dist/workflows/workflows-config.json",
     "prepare": "npm run build",
     "check": "npm run ci",
     "check:environment": "node --version && npm --version",
@@ -56,6 +57,7 @@
     "node": ">=20.19.4"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.4",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@toon-format/toon": "^2.3.0",
     "ajv": "^8.20.0",
@@ -64,8 +66,15 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
     "esbuild": "^0.28.1",
+    "lucide-react": "^1.25.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "tsx": "^4.22.4",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^8.1.5"
   }
 }

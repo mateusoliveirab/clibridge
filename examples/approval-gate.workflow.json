@@ -1,0 +1,11 @@
+{
+  "name": "approval-gate",
+  "description": "A dry-run example that demonstrates the local approval gate before a remote Git action.",
+  "phases": [
+    {
+      "name": "review-remote-push",
+      "kind": "shell",
+      "command": "git push origin main"
+    }
+  ]
+}

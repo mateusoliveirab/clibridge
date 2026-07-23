@@ -1,0 +1,16 @@
+{
+  "name": "console-smoke",
+  "description": "A side-effect-free workflow for verifying the local console.",
+  "phases": [
+    {
+      "name": "verify-console",
+      "kind": "shell",
+      "command": "node -e \"console.log('console-smoke: ok')\""
+    },
+    {
+      "name": "report",
+      "kind": "policy",
+      "assertions": []
+    }
+  ]
+}
