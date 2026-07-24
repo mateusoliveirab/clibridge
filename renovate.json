@@ -1,0 +1,19 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "prCreation": "immediate",
+  "rebaseWhen": "conflicted",
+  "separateMinorPatch": true,
+  "packageRules": [
+    {
+      "description": "Major dependency upgrades can change provider, MCP, or build contracts and require maintainer review.",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
+      "description": "Keep GitHub Action updates isolated so workflow changes remain auditable.",
+      "matchManagers": ["github-actions"],
+      "groupName": null
+    }
+  ]
+}

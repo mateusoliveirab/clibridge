@@ -3,6 +3,9 @@
 ## Stack
 Node.js >=20.19.4 · TypeScript · @modelcontextprotocol/sdk · tsx · node:test
 
+`AGENTS.md` is the shared, tool-neutral contributor contract. Keep this file
+limited to Claude-specific operational context; do not duplicate its rules.
+
 ## Gotchas
 - **Fallback Masquerading**: Broker-level fallbacks can mask API/credential failures during tests/validations. Always set `disableFallback: true` in diagnostics, matrix, or environment check scripts to expose genuine rate limits, auth errors, or credit exhaustion.
 - **Workflow Template Interpolation**: Shell validation commands in workflows (not just agent prompts) must render template variables (e.g. `{{inputs.filename}}`) before execution.
@@ -17,7 +20,8 @@ Node.js >=20.19.4 · TypeScript · @modelcontextprotocol/sdk · tsx · node:test
 - `npm test` — Run all unit tests.
 - `npm run test:coverage` — Run unit tests with code coverage report.
 - `npm run typecheck` — Run TypeScript type checking.
+- `npm run ci` — Run the required offline pull-request gate.
+- `npm run verify:fast` — Run typecheck and scoped tests.
 - `npm run live:validate` — Run strict validation against local CLI binaries (with fallbacks disabled).
 - `npm run smoke` — Dry-run validation of provider configurations.
-
 

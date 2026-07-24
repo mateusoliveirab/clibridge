@@ -14,9 +14,10 @@ test('loadContributionConfig returns defaults when config is absent', () => {
     const config = loadContributionConfig(dir)
     assert.strictEqual(config.repository.defaultBranch, 'main')
     assert.strictEqual(config.contribution.branchPrefix, 'contrib/')
-    assert.deepStrictEqual(config.validation.commands, ['npm run typecheck', 'npm test'])
+    assert.deepStrictEqual(config.validation.commands, ['npm run ci'])
     assert.deepStrictEqual(config.validation.stressCommands, ['npm run smoke'])
     assert.ok(config.rules.files.includes('CONTRIBUTING.md'))
+    assert.ok(config.rules.files.includes('AGENTS.md'))
     assert.ok(config.policy.issueFirstChangeTypes.includes('feature'))
     assert.strictEqual(config.contribution.allowPublish, false)
   } finally {

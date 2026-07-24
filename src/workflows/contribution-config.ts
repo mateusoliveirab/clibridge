@@ -62,12 +62,15 @@ export const DEFAULT_CONTRIBUTION_CONFIG: ContributionWorkflowConfig = Object.fr
       'CONTRIBUTING.md',
       '.github/PULL_REQUEST_TEMPLATE.md',
       'README.md',
+      'AGENTS.md',
       'CLAUDE.md',
+      'TESTING.md',
+      'SECURITY.md',
     ],
     requireDiscovery: true,
   },
   validation: {
-    commands: ['npm run typecheck', 'npm test'],
+    commands: ['npm run ci'],
     stressCommands: ['npm run smoke'],
   },
   policy: {

@@ -1,0 +1,38 @@
+name: Bug report
+description: Report a reproducible problem in Clibridge.
+title: "fix: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include tokens, credentials, private prompts, or vulnerability details. Use SECURITY.md for security reports."
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: "1.0.0 or abc1234"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: "Include commands, sanitized workflow/config, provider, and fallback setting."
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Relevant sanitized logs or evidence

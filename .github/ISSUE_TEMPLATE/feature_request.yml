@@ -1,0 +1,28 @@
+name: Feature request
+description: Propose a user or contributor outcome before implementation.
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: "Describe the current limitation and who experiences it."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+    validations:
+      required: true
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: Affected contracts
+      options:
+        - label: MCP API or normalized response envelope
+        - label: Provider capability, routing, or fallback behavior
+        - label: Daemon execution, approval, ledger, or redaction
+        - label: Dashboard operator workflow
+        - label: None of the above

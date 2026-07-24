@@ -7,7 +7,7 @@
   "contribution": {
     "branchPrefix": "contrib/",
     "requireCleanWorktree": true,
-    "allowPublish": true,
+    "allowPublish": false,
     "draftPr": true
   },
   "rules": {
@@ -15,14 +15,16 @@
       "CONTRIBUTING.md",
       ".github/PULL_REQUEST_TEMPLATE.md",
       "README.md",
-      "CLAUDE.md"
+      "AGENTS.md",
+      "CLAUDE.md",
+      "TESTING.md",
+      "SECURITY.md"
     ],
     "requireDiscovery": true
   },
   "validation": {
     "commands": [
-      "npm run typecheck",
-      "npm test"
+      "npm run ci"
     ],
     "stressCommands": [
       "npm run smoke"
