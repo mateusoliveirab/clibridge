@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0](https://github.com/mateusoliveirab/clibridge/compare/v1.0.0...v1.1.0) (2026-07-11)
+
+
+### Features
+
+* **readme:** add npm version badge ([476d83c](https://github.com/mateusoliveirab/clibridge/commit/476d83c0acc64ad1d9af5d55b877e1063a2ba384))
+* **toon:** add selectable workflow contract format ([aed0db8](https://github.com/mateusoliveirab/clibridge/commit/aed0db8319b82048e8952e75dcb6b2a7aa4df0b2))
+* **toon:** support toon workflow inputs ([f1506ec](https://github.com/mateusoliveirab/clibridge/commit/f1506ec7d56b965b676412ab2801736dad844579))
+* **workflows:** add execution policy (read-only/workspace-write/unrestricted) ([7456a09](https://github.com/mateusoliveirab/clibridge/commit/7456a0965982a8383c72eeba8d447b495dca5b82))
+
+
+### Bug Fixes
+
+* **adapters:** migrate gemini provider to agy (Antigravity) CLI ([4ed4c47](https://github.com/mateusoliveirab/clibridge/commit/4ed4c4745beb37b2c36fda194502e39399a210ca))
+* **adapters:** place agy prompt immediately after --print ([b1ac36c](https://github.com/mateusoliveirab/clibridge/commit/b1ac36cd246188a00926384fa5c6d7ba4a963bbe))
+* **cli:** make skip permissions explicit ([629c031](https://github.com/mateusoliveirab/clibridge/commit/629c031269dbc9f7627083ce451f2e2a04b2bb05))
+
 ## 1.0.0 (2026-06-18)
 
 
