@@ -408,5 +408,8 @@ npm run live:toon-contract -- --providers claude,codex,gemini --timeout-ms 12000
 
 ## Contributing & Changelog
 
-See our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on developer setup and code validation.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and contribution guidelines,
+[TESTING.md](TESTING.md) for validation evidence, and [SECURITY.md](SECURITY.md)
+for private vulnerability reporting. Coding agents should start with
+[AGENTS.md](AGENTS.md).
 See [CHANGELOG.md](CHANGELOG.md) for release history.

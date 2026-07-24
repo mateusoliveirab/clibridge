@@ -29,9 +29,11 @@
   "scripts": {
     "build": "esbuild src/mcp-server.ts src/workflows/workflow-executor.ts src/workflows/run-state.ts --bundle --platform=node --format=esm --outdir=dist --packages=external && mkdir -p dist/workflows && cp src/workflows/workflows-config.json dist/workflows/workflows-config.json",
     "prepare": "npm run build",
-    "check": "node --version && npm --version",
+    "check": "npm run ci",
+    "check:environment": "node --version && npm --version",
+    "ci": "npm run typecheck && npm run build && npm test && npm run smoke",
     "docs": "find docs -maxdepth 1 -type f -name '*.md' -print | sort",
-    "test:coverage": "node --import tsx --test --experimental-test-coverage",
+    "test:coverage": "node --import tsx --test --experimental-test-coverage test/*.test.mjs",
     "live:toon-contract": "tsx scripts/live-toon-contract-validation.mjs",
     "live:validate": "tsx scripts/live-validations.mjs",
     "live:validate:agy": "tsx scripts/live-validations.mjs agy",
@@ -43,9 +45,11 @@
     "mcp": "tsx src/mcp-server.ts",
     "smoke": "tsx scripts/smoke.mjs",
     "smoke:live": "tsx scripts/smoke.mjs --live",
-    "test": "node --import tsx --test",
+    "test": "node --import tsx --test test/*.test.mjs",
     "toon:eval": "node scripts/toon-autoresearch-eval.mjs",
     "typecheck": "tsc --noEmit",
+    "hooks:install": "git config core.hooksPath .githooks",
+    "verify:fast": "npm run typecheck && npm test",
     "validate:plugin": "python3 $HOME/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py ."
   },
   "engines": {
