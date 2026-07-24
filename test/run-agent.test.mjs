@@ -332,14 +332,13 @@ test('runAgent rejects read-only access when provider lacks sandbox support', as
   assert.equal(dispatched, false, 'read-only without sandbox must reject before dispatch')
 })
 
-test('runAgent allows unsandboxed read-only access when caller enforces it externally', async () => {
+test('runAgent does not expose a bypass for unsandboxed read-only access', async () => {
   let seenRequest
   const result = await runAgent({
     workflow: 'w', phase: 'Create', label: 'l', cwd, prompt: 'go', access: 'read-only',
   }, {
     config: { defaultProvider: 'mock' },
     loadAgent: false,
-    allowUnenforcedAccess: true,
     adapters: {
       mock: {
         capabilities: { structuredOutput: true, images: true, sandbox: false, skipPermissions: true },
@@ -351,8 +350,9 @@ test('runAgent allows unsandboxed read-only access when caller enforces it exter
     },
   })
 
-  assert.equal(result.ok, true)
-  assert.equal(seenRequest.sandbox, undefined)
+  assert.equal(result.ok, false)
+  assert.equal(result.errorCode, 'UNSUPPORTED_SANDBOX')
+  assert.equal(seenRequest, undefined)
 })
 
 test('runAgent adds read-only sandbox for read-only requests when provider supports sandbox', async () => {

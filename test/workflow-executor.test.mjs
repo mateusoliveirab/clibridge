@@ -525,6 +525,40 @@ test('runWorkflow detects writes from a read-only agent phase in git repos', asy
   }
 })
 
+test('runWorkflow rejects an unsandboxed read-only agent before dispatch outside a git repository', async () => {
+  const dir = tempDir()
+  let dispatched = false
+  try {
+    const workflowPath = path.join(dir, 'workflow.json')
+    writeJson(workflowPath, {
+      name: 'non-git-read-only-guard',
+      phases: [{ name: 'research', kind: 'agent', provider: 'mock', prompt: 'research' }],
+    })
+
+    const result = await runWorkflow({
+      workflowPath,
+      cwd: dir,
+      task: 'research',
+    }, {
+      adapters: {
+        mock: {
+          capabilities: { structuredOutput: true, images: true, sandbox: false, skipPermissions: true },
+          run: async () => {
+            dispatched = true
+            throw new Error('must not dispatch')
+          },
+        },
+      },
+    })
+
+    assert.equal(result.ok, false)
+    assert.match(result.error, /UNSUPPORTED_SANDBOX/)
+    assert.equal(dispatched, false)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('runWorkflow reports read-only writes even when the agent phase fails', async () => {
   const dir = tempDir()
   const repo = path.join(dir, 'repo')

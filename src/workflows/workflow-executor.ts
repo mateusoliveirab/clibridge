@@ -396,9 +396,6 @@ async function agentPhase(
     config: context.config,
     adapters: context.adapters,
     dangerouslySkipPermissions: context.input.dangerouslySkipPermissions,
-    // The executor enforces read-only itself via git-state snapshots around
-    // each phase, so providers without sandbox support are still acceptable.
-    allowUnenforcedAccess: true,
   })
 
   if (!result.ok) {
