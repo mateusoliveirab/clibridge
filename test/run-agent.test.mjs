@@ -309,6 +309,52 @@ test('runAgent rejects sandbox requests for a provider that lacks sandbox', asyn
   assert.equal(dispatched, false)
 })
 
+test('runAgent rejects read-only access when provider lacks sandbox support', async () => {
+  let dispatched = false
+  const result = await runAgent({
+    workflow: 'w', phase: 'Create', label: 'l', cwd, prompt: 'go', access: 'read-only',
+  }, {
+    config: { defaultProvider: 'mock' },
+    loadAgent: false,
+    adapters: {
+      mock: {
+        capabilities: { structuredOutput: true, images: true, sandbox: false, skipPermissions: true },
+        run: async (request) => {
+          dispatched = true
+          return successEnvelope(request)
+        },
+      },
+    },
+  })
+
+  assert.equal(result.ok, false)
+  assert.equal(result.errorCode, 'UNSUPPORTED_SANDBOX')
+  assert.equal(dispatched, false, 'read-only without sandbox must reject before dispatch')
+})
+
+test('runAgent does not expose a bypass for unsandboxed read-only access', async () => {
+  let seenRequest
+  const result = await runAgent({
+    workflow: 'w', phase: 'Create', label: 'l', cwd, prompt: 'go', access: 'read-only',
+  }, {
+    config: { defaultProvider: 'mock' },
+    loadAgent: false,
+    adapters: {
+      mock: {
+        capabilities: { structuredOutput: true, images: true, sandbox: false, skipPermissions: true },
+        run: async (request) => {
+          seenRequest = request
+          return successEnvelope(request)
+        },
+      },
+    },
+  })
+
+  assert.equal(result.ok, false)
+  assert.equal(result.errorCode, 'UNSUPPORTED_SANDBOX')
+  assert.equal(seenRequest, undefined)
+})
+
 test('runAgent adds read-only sandbox for read-only requests when provider supports sandbox', async () => {
   let seenRequest
   const result = await runAgent({
@@ -396,6 +442,73 @@ test('runAgent falls back to another compatible available provider when primary 
   assert.equal(result.provider, 'fallback')
   assert.equal(result.text, 'fallback success text')
   assert.ok(result.warnings.some((w) => w.includes("Fallback triggered from 'primary' to 'fallback'")))
+})
+
+test('runAgent skips fallback providers that cannot enforce read-only access', async () => {
+  let unsandboxedDispatched = false
+  let seenGuardedRequest
+  const result = await runAgent({
+    workflow: 'w', phase: 'Create', label: 'l', cwd, prompt: 'go', access: 'read-only',
+  }, {
+    config: { defaultProvider: 'primary' },
+    loadAgent: false,
+    adapters: {
+      primary: {
+        capabilities: { structuredOutput: false, images: false, sandbox: true, skipPermissions: false },
+        run: async () => {
+          throw new BridgeError(ErrorCode.PROCESS_EXIT_NONZERO, 'Mock primary crash', { recoverable: false })
+        },
+      },
+      unsandboxed: {
+        capabilities: { structuredOutput: false, images: false, sandbox: false, skipPermissions: false },
+        run: async (request) => {
+          unsandboxedDispatched = true
+          return successEnvelope(request)
+        },
+      },
+      guarded: {
+        capabilities: { structuredOutput: false, images: false, sandbox: true, skipPermissions: false },
+        run: async (request) => {
+          seenGuardedRequest = request
+          return successEnvelope(request)
+        },
+      },
+    },
+  })
+
+  assert.equal(result.ok, true)
+  assert.equal(result.provider, 'guarded')
+  assert.equal(unsandboxedDispatched, false, 'sandbox-less fallback must be skipped for read-only requests')
+  assert.equal(seenGuardedRequest.sandbox, 'read-only')
+})
+
+test('runAgent skips fallback providers that lack a required capability', async () => {
+  let textOnlyDispatched = false
+  const result = await runAgent({
+    workflow: 'w', phase: 'Create', label: 'l', cwd, prompt: 'go',
+    schema: { type: 'object', properties: { ok: { type: 'boolean' } } },
+  }, {
+    config: { defaultProvider: 'primary' },
+    loadAgent: false,
+    adapters: {
+      primary: {
+        capabilities: { structuredOutput: true, images: false, sandbox: false, skipPermissions: false },
+        run: async () => {
+          throw new BridgeError(ErrorCode.PROCESS_EXIT_NONZERO, 'Mock primary crash', { recoverable: false })
+        },
+      },
+      textOnly: {
+        capabilities: { structuredOutput: false, images: false, sandbox: false, skipPermissions: false },
+        run: async (request) => {
+          textOnlyDispatched = true
+          return successEnvelope(request)
+        },
+      },
+    },
+  })
+
+  assert.equal(result.ok, false)
+  assert.equal(textOnlyDispatched, false, 'fallback lacking structuredOutput must not be dispatched')
 })
 
 test('runAgent does not fall back when disableFallback is true', async () => {

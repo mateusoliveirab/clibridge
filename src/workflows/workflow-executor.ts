@@ -91,7 +91,13 @@ interface ExecutionPolicy {
   allowDangerousPermissions: boolean
 }
 
-type MutationSnapshot = Map<string, string>
+interface MutationSnapshot {
+  files: Map<string, string>
+  /** HEAD commit SHA, or null on an unborn branch. Catches phases that commit/reset to hide edits. */
+  head: string | null
+  /** refs/stash SHA, or null when no stash exists. Catches phases that stash edits away. */
+  stashRef: string | null
+}
 
 export interface WorkflowPhaseResult {
   name: string
@@ -433,17 +439,39 @@ function beginMutationSnapshot(cwd: string, policy: ExecutionPolicy): MutationSn
   // workspace-write with no path restrictions never violates — skip the audit.
   if (policy.access === 'workspace-write' && !policy.allowedWritePaths.length) return null
   try {
-    return snapshotChangedFiles(cwd)
+    return {
+      files: snapshotChangedFiles(cwd),
+      head: gitRevParse(cwd, 'HEAD'),
+      stashRef: gitRevParse(cwd, 'refs/stash'),
+    }
   } catch {
     return null // not a git repository — nothing to audit against
   }
 }
 
+// Limitation: paths matched by .gitignore are invisible to both the porcelain
+// snapshot and the ref checks, so mutations confined to ignored paths (e.g.
+// node_modules, build output) go undetected. Fingerprinting every ignored file
+// per phase is prohibitively expensive, so this is a deliberate trade-off.
 function assertMutationPolicy(cwd: string, policy: ExecutionPolicy, before: MutationSnapshot | null): void {
   if (!before) return
 
-  const after = snapshotChangedFiles(cwd)
-  const changed = changedSince(before, after)
+  const changedSet = new Set(changedSince(before.files, snapshotChangedFiles(cwd)))
+
+  // A phase can leave `git status` clean by committing or stashing its edits;
+  // compare tree-level refs so laundered mutations still surface.
+  const headAfter = gitRevParse(cwd, 'HEAD')
+  if (before.head !== headAfter) {
+    if (before.head && headAfter) {
+      for (const file of diffCommitPaths(cwd, before.head, headAfter)) changedSet.add(file)
+    }
+    changedSet.add('<git HEAD moved>')
+  }
+  if (before.stashRef !== gitRevParse(cwd, 'refs/stash')) {
+    changedSet.add('<git stash changed>')
+  }
+
+  const changed = Array.from(changedSet).sort()
   if (!changed.length) return
 
   if (policy.access === 'read-only') {
@@ -457,6 +485,30 @@ function assertMutationPolicy(cwd: string, policy: ExecutionPolicy, before: Muta
         `Execution policy violation: phase changed files outside allowedWritePaths: ${disallowed.join(', ')}`
       )
     }
+  }
+}
+
+function gitRevParse(cwd: string, ref: string): string | null {
+  try {
+    const output = execFileSync('git', ['-C', cwd, 'rev-parse', '--verify', '--quiet', ref], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+    return output || null
+  } catch {
+    return null
+  }
+}
+
+function diffCommitPaths(cwd: string, fromRef: string, toRef: string): string[] {
+  try {
+    const output = execFileSync('git', ['-C', cwd, 'diff', '--name-only', fromRef, toRef], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    return output.split('\n').map(line => line.trim()).filter(Boolean).map(normalizeRepoPath)
+  } catch {
+    return []
   }
 }
 

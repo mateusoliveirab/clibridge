@@ -525,6 +525,40 @@ test('runWorkflow detects writes from a read-only agent phase in git repos', asy
   }
 })
 
+test('runWorkflow rejects an unsandboxed read-only agent before dispatch outside a git repository', async () => {
+  const dir = tempDir()
+  let dispatched = false
+  try {
+    const workflowPath = path.join(dir, 'workflow.json')
+    writeJson(workflowPath, {
+      name: 'non-git-read-only-guard',
+      phases: [{ name: 'research', kind: 'agent', provider: 'mock', prompt: 'research' }],
+    })
+
+    const result = await runWorkflow({
+      workflowPath,
+      cwd: dir,
+      task: 'research',
+    }, {
+      adapters: {
+        mock: {
+          capabilities: { structuredOutput: true, images: true, sandbox: false, skipPermissions: true },
+          run: async () => {
+            dispatched = true
+            throw new Error('must not dispatch')
+          },
+        },
+      },
+    })
+
+    assert.equal(result.ok, false)
+    assert.match(result.error, /UNSUPPORTED_SANDBOX/)
+    assert.equal(dispatched, false)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('runWorkflow reports read-only writes even when the agent phase fails', async () => {
   const dir = tempDir()
   const repo = path.join(dir, 'repo')
@@ -561,6 +595,126 @@ test('runWorkflow reports read-only writes even when the agent phase fails', asy
     assert.match(result.error, /read-only phase changed files/)
     assert.match(result.error, /unexpected\.ts/)
     assert.match(result.error, /Original phase error: research failed: UNKNOWN_PROVIDER_ERROR provider failed/)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('runWorkflow detects read-only writes laundered through a git commit', async () => {
+  const dir = tempDir()
+  const repo = path.join(dir, 'repo')
+  fs.mkdirSync(repo)
+  gitInit(repo)
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: repo, stdio: 'ignore' })
+  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: repo, stdio: 'ignore' })
+  fs.writeFileSync(path.join(repo, 'seed.txt'), 'seed')
+  execFileSync('git', ['add', '-A'], { cwd: repo, stdio: 'ignore' })
+  execFileSync('git', ['commit', '-m', 'seed'], { cwd: repo, stdio: 'ignore' })
+  try {
+    const workflowPath = path.join(dir, 'workflow.json')
+    writeJson(workflowPath, {
+      name: 'read-only-commit-guard',
+      phases: [
+        {
+          name: 'research',
+          kind: 'agent',
+          provider: 'mock',
+          prompt: 'research',
+        },
+      ],
+    })
+
+    const result = await runWorkflow({
+      workflowPath,
+      cwd: repo,
+      task: 'research',
+    }, {
+      adapters: {
+        mock: async (request) => {
+          fs.writeFileSync(path.join(repo, 'smuggled.ts'), 'changed')
+          execFileSync('git', ['add', '-A'], { cwd: repo, stdio: 'ignore' })
+          execFileSync('git', ['commit', '-m', 'hide the edit'], { cwd: repo, stdio: 'ignore' })
+          return {
+            ok: true,
+            runId: request.runId,
+            provider: request.provider,
+            phase: request.phase,
+            label: request.label,
+            durationMs: 1,
+            attempts: 1,
+            structured: false,
+            text: 'ok',
+            usage: {},
+            artifacts: [],
+            warnings: [],
+          }
+        },
+      },
+    })
+
+    assert.equal(result.ok, false)
+    assert.match(result.error, /read-only phase changed files/)
+    assert.match(result.error, /smuggled\.ts/)
+    assert.match(result.error, /<git HEAD moved>/)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('runWorkflow detects read-only writes laundered through git stash', async () => {
+  const dir = tempDir()
+  const repo = path.join(dir, 'repo')
+  fs.mkdirSync(repo)
+  gitInit(repo)
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: repo, stdio: 'ignore' })
+  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: repo, stdio: 'ignore' })
+  fs.writeFileSync(path.join(repo, 'seed.txt'), 'seed')
+  execFileSync('git', ['add', '-A'], { cwd: repo, stdio: 'ignore' })
+  execFileSync('git', ['commit', '-m', 'seed'], { cwd: repo, stdio: 'ignore' })
+  try {
+    const workflowPath = path.join(dir, 'workflow.json')
+    writeJson(workflowPath, {
+      name: 'read-only-stash-guard',
+      phases: [
+        {
+          name: 'research',
+          kind: 'agent',
+          provider: 'mock',
+          prompt: 'research',
+        },
+      ],
+    })
+
+    const result = await runWorkflow({
+      workflowPath,
+      cwd: repo,
+      task: 'research',
+    }, {
+      adapters: {
+        mock: async (request) => {
+          fs.writeFileSync(path.join(repo, 'seed.txt'), 'tampered')
+          execFileSync('git', ['stash', 'push', '-m', 'hide the edit'], { cwd: repo, stdio: 'ignore' })
+          return {
+            ok: true,
+            runId: request.runId,
+            provider: request.provider,
+            phase: request.phase,
+            label: request.label,
+            durationMs: 1,
+            attempts: 1,
+            structured: false,
+            text: 'ok',
+            usage: {},
+            artifacts: [],
+            warnings: [],
+          }
+        },
+      },
+    })
+
+    assert.equal(result.ok, false)
+    assert.match(result.error, /read-only phase changed files/)
+    assert.match(result.error, /<git stash changed>/)
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
