@@ -1,0 +1,369 @@
+{
+  "name": "maintainer-component-audit",
+  "description": "Read-only maintainer audit of the remaining Clibridge components, followed by a prioritized improvement backlog and validation plan.",
+  "contractFormat": "json",
+  "disableFallback": true,
+  "access": "read-only",
+  "inputDefaults": {
+    "scope": "all production components not yet reviewed",
+    "reviewDepth": "production readiness",
+    "allowWrite": false
+  },
+  "phases": [
+    {
+      "name": "baseline",
+      "kind": "read-files",
+      "maxBytes": 14000,
+      "files": [
+        "AGENTS.md",
+        "agents.local.md",
+        "CONTRIBUTING.md",
+        "README.md",
+        "docs/architecture.md",
+        "docs/workflow-executor-contract.md",
+        "package.json",
+        "tsconfig.json",
+        ".github/workflows/ci.yml",
+        ".github/workflows/release-please.yml"
+      ]
+    },
+    {
+      "name": "policy",
+      "kind": "policy",
+      "assertions": [
+        {
+          "input": "allowWrite",
+          "equals": false,
+          "message": "The maintainer component audit is read-only; implementation belongs to a later gated workflow."
+        }
+      ]
+    },
+    {
+      "name": "inventory",
+      "kind": "agent",
+      "provider": "codex",
+      "access": "read-only",
+      "disableFallback": true,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string" },
+                "paths": { "type": "array", "items": { "type": "string" } },
+                "status": { "type": "string", "enum": ["healthy", "needs-review", "blocked"] },
+                "risk": { "type": "string", "enum": ["low", "medium", "high"] },
+                "evidence": { "type": "string" },
+                "nextReview": { "type": "string" }
+              },
+              "required": ["name", "paths", "status", "risk", "evidence", "nextReview"]
+            }
+          },
+          "crossCuttingRisks": { "type": "array", "items": { "type": "string" } },
+          "reviewOrder": { "type": "array", "items": { "type": "string" } },
+          "confidence": { "type": "string", "enum": ["low", "medium", "high"] }
+        },
+        "required": ["components", "crossCuttingRisks", "reviewOrder", "confidence"]
+      },
+      "mockData": {
+        "components": [
+          {
+            "name": "adapters-broker",
+            "paths": ["src/adapters/", "src/broker/"],
+            "status": "needs-review",
+            "risk": "medium",
+            "evidence": "Dry-run fixture only; inspect the checkout for current evidence.",
+            "nextReview": "Verify capability routing, normalized errors, and offline coverage."
+          }
+        ],
+        "crossCuttingRisks": ["Dry-run fixture; replace with evidence from the checkout."],
+        "reviewOrder": ["adapters-broker", "daemon-dashboard", "workflows-tooling", "contribution-release"],
+        "confidence": "low"
+      },
+      "prompt": "Act as the delegated maintainer performing a read-only inventory of the actual repository at {{cwd}}. The requested scope is {{inputs.scope}} and the review depth is {{inputs.reviewDepth}}. Read the source, tests, docs, and configuration; do not edit files, commit, publish, or invoke a provider fallback. Treat the baseline below as a starting point, not as proof. Map the production components that still need review, their ownership boundaries, current evidence, risk, and the next concrete review gate. Include adapters/broker, daemon/dashboard, workflow executor/run-state, contribution/release tooling, tests, and documentation where relevant. Never include credentials, tokens, secret values, prompts containing secrets, or raw provider output; redact any accidental sensitive material. Return JSON only, matching the schema.\n\nBaseline context:\n{{results.baseline}}"
+    },
+    {
+      "name": "review-adapters-broker",
+      "kind": "agent",
+      "provider": "codex",
+      "access": "read-only",
+      "disableFallback": true,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "component": { "type": "string" },
+          "strengths": { "type": "array", "items": { "type": "string" } },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string" },
+                "severity": { "type": "string", "enum": ["high", "medium", "low"] },
+                "path": { "type": "string" },
+                "summary": { "type": "string" },
+                "evidence": { "type": "string" },
+                "recommendation": { "type": "string" },
+                "validation": { "type": "string" }
+              },
+              "required": ["id", "severity", "path", "summary", "evidence", "recommendation", "validation"]
+            }
+          },
+          "coverageGaps": { "type": "array", "items": { "type": "string" } },
+          "recommendedTests": { "type": "array", "items": { "type": "string" } },
+          "confidence": { "type": "string", "enum": ["low", "medium", "high"] }
+        },
+        "required": ["component", "strengths", "findings", "coverageGaps", "recommendedTests", "confidence"]
+      },
+      "mockData": {
+        "component": "adapters-broker",
+        "strengths": ["Dry-run fixture only."],
+        "findings": [],
+        "coverageGaps": ["Replace fixture with source-backed review."],
+        "recommendedTests": ["Run the focused adapter and routing tests."],
+        "confidence": "low"
+      },
+      "prompt": "Perform an independent, read-only review of the adapters and broker in the actual repository at {{cwd}}. Inspect src/adapters/, src/broker/, src/types.ts, relevant tests, and the architecture contract. Check capability declarations against dispatch behavior, route precedence, provider availability, schema validation, retries/fallback behavior, read-only sandbox enforcement, normalized errors, env allowlists, and secret-safe diagnostics. Look for concrete correctness, security, and maintainability gaps rather than generic advice. Do not edit files or run mutating commands. The inventory is context only and must be verified against source:\n\n{{results.inventory}}\n\nReturn JSON only, with path-based evidence and a validation command for every finding. Never return credentials, tokens, secret values, or raw provider output."
+    },
+    {
+      "name": "review-daemon-dashboard",
+      "kind": "agent",
+      "provider": "codex",
+      "access": "read-only",
+      "disableFallback": true,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "component": { "type": "string" },
+          "strengths": { "type": "array", "items": { "type": "string" } },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string" },
+                "severity": { "type": "string", "enum": ["high", "medium", "low"] },
+                "path": { "type": "string" },
+                "summary": { "type": "string" },
+                "evidence": { "type": "string" },
+                "recommendation": { "type": "string" },
+                "validation": { "type": "string" }
+              },
+              "required": ["id", "severity", "path", "summary", "evidence", "recommendation", "validation"]
+            }
+          },
+          "coverageGaps": { "type": "array", "items": { "type": "string" } },
+          "recommendedTests": { "type": "array", "items": { "type": "string" } },
+          "confidence": { "type": "string", "enum": ["low", "medium", "high"] }
+        },
+        "required": ["component", "strengths", "findings", "coverageGaps", "recommendedTests", "confidence"]
+      },
+      "mockData": {
+        "component": "daemon-dashboard",
+        "strengths": ["Dry-run fixture only."],
+        "findings": [],
+        "coverageGaps": ["Replace fixture with source-backed review."],
+        "recommendedTests": ["Run daemon, console, and redaction tests."],
+        "confidence": "low"
+      },
+      "prompt": "Perform an independent, read-only review of the daemon and dashboard in the actual repository at {{cwd}}. Inspect src/daemon/, dashboard/, the MCP/daemon client path, relevant tests, and documentation. Check project scoping, workflow-path validation, approval gates, cancellation and timeouts, ledger state transitions, SSE/HTTP behavior, redaction boundaries, UI error states, and whether the dashboard reflects persisted truth rather than optimistic state. Identify concrete findings with file evidence and tests or commands that can prove each one. Do not edit files or run mutating commands. Use this inventory only as context:\n\n{{results.inventory}}\n\nReturn JSON only. Never return credentials, tokens, secret values, prompts containing secrets, or raw provider output."
+    },
+    {
+      "name": "review-workflows-tooling",
+      "kind": "agent",
+      "provider": "codex",
+      "access": "read-only",
+      "disableFallback": true,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "component": { "type": "string" },
+          "strengths": { "type": "array", "items": { "type": "string" } },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string" },
+                "severity": { "type": "string", "enum": ["high", "medium", "low"] },
+                "path": { "type": "string" },
+                "summary": { "type": "string" },
+                "evidence": { "type": "string" },
+                "recommendation": { "type": "string" },
+                "validation": { "type": "string" }
+              },
+              "required": ["id", "severity", "path", "summary", "evidence", "recommendation", "validation"]
+            }
+          },
+          "coverageGaps": { "type": "array", "items": { "type": "string" } },
+          "recommendedTests": { "type": "array", "items": { "type": "string" } },
+          "confidence": { "type": "string", "enum": ["low", "medium", "high"] }
+        },
+        "required": ["component", "strengths", "findings", "coverageGaps", "recommendedTests", "confidence"]
+      },
+      "mockData": {
+        "component": "workflows-tooling",
+        "strengths": ["Dry-run fixture only."],
+        "findings": [],
+        "coverageGaps": ["Replace fixture with source-backed review."],
+        "recommendedTests": ["Run workflow executor, run-state, and CLI tests."],
+        "confidence": "low"
+      },
+      "prompt": "Perform an independent, read-only review of the workflow executor, run-state, workflow presets, CLI tools, examples, tests, and documentation at {{cwd}}. Inspect src/workflows/, bin/, scripts/, examples/, docs/workflows/, and their tests. Check phase contract consistency, template rendering, dry-run behavior, structured output propagation, TOON/JSON boundaries, mutation policy, run-state/ledger evidence, CLI/MCP parity, examples that no longer match runtime support, and missing regression coverage. Do not edit files or run mutating commands. Verify the inventory against the checkout:\n\n{{results.inventory}}\n\nReturn JSON only with concrete path-based findings and validation commands. Never return credentials, tokens, secret values, prompts containing secrets, or raw provider output."
+    },
+    {
+      "name": "review-contribution-release",
+      "kind": "agent",
+      "provider": "codex",
+      "access": "read-only",
+      "disableFallback": true,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "component": { "type": "string" },
+          "strengths": { "type": "array", "items": { "type": "string" } },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string" },
+                "severity": { "type": "string", "enum": ["high", "medium", "low"] },
+                "path": { "type": "string" },
+                "summary": { "type": "string" },
+                "evidence": { "type": "string" },
+                "recommendation": { "type": "string" },
+                "validation": { "type": "string" }
+              },
+              "required": ["id", "severity", "path", "summary", "evidence", "recommendation", "validation"]
+            }
+          },
+          "coverageGaps": { "type": "array", "items": { "type": "string" } },
+          "recommendedTests": { "type": "array", "items": { "type": "string" } },
+          "confidence": { "type": "string", "enum": ["low", "medium", "high"] }
+        },
+        "required": ["component", "strengths", "findings", "coverageGaps", "recommendedTests", "confidence"]
+      },
+      "mockData": {
+        "component": "contribution-release",
+        "strengths": ["Dry-run fixture only."],
+        "findings": [],
+        "coverageGaps": ["Replace fixture with source-backed review."],
+        "recommendedTests": ["Run CI and inspect release authorization boundaries."],
+        "confidence": "low"
+      },
+      "prompt": "Perform an independent, read-only maintainer review of contribution and release readiness at {{cwd}}. Inspect AGENTS.md, agents.local.md, CONTRIBUTING.md, package.json, .github workflows, release configuration, npm/package metadata, and relevant tests/docs. Check whether local authority is clearly separated from external GitHub/npm gates, whether CI/release automation can fail closed, whether publish/auth blockers are documented without exposing secrets, and whether the repository handoff is reproducible. Do not publish, push, alter credentials, or edit files. Use this inventory as context but verify all claims in source:\n\n{{results.inventory}}\n\nReturn JSON only with concrete evidence and validation commands. Never return credentials, tokens, secret values, prompts containing secrets, or raw provider output."
+    },
+    {
+      "name": "synthesis",
+      "kind": "agent",
+      "provider": "codex",
+      "access": "read-only",
+      "disableFallback": true,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "releaseReadiness": { "type": "string", "enum": ["ready", "needs-work", "blocked"] },
+          "priorities": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string" },
+                "priority": { "type": "string", "enum": ["P0", "P1", "P2"] },
+                "component": { "type": "string" },
+                "change": { "type": "string" },
+                "files": { "type": "array", "items": { "type": "string" } },
+                "validation": { "type": "array", "items": { "type": "string" } },
+                "owner": { "type": "string", "enum": ["maintainer", "external-gate"] },
+                "blockedBy": { "type": "array", "items": { "type": "string" } }
+              },
+              "required": ["id", "priority", "component", "change", "files", "validation", "owner", "blockedBy"]
+            }
+          },
+          "deferred": { "type": "array", "items": { "type": "string" } },
+          "decision": { "type": "string" }
+        },
+        "required": ["releaseReadiness", "priorities", "deferred", "decision"]
+      },
+      "mockData": {
+        "releaseReadiness": "needs-work",
+        "priorities": [
+          {
+            "id": "P1-000",
+            "priority": "P1",
+            "component": "workflow",
+            "change": "Replace dry-run fixture with evidence-backed follow-up.",
+            "files": ["examples/maintainer-component-audit.workflow.json"],
+            "validation": ["npm run ci"],
+            "owner": "maintainer",
+            "blockedBy": []
+          }
+        ],
+        "deferred": ["Dry-run fixture is not a repository finding."],
+        "decision": "Run the real read-only audit before implementing any improvement."
+      },
+      "prompt": "Act as the maintainer judge. Synthesize the independent component reviews below into a small, evidence-backed improvement backlog for {{cwd}}. Prefer the smallest high-leverage changes, deduplicate overlapping findings, preserve project scoping and read-only safety, and distinguish maintainer-owned work from external gates such as provider credentials, npm authorization, GitHub protection, or physical/runtime validation. Do not invent findings that are absent from the evidence. Every priority must name files and concrete validation. Keep secrets and raw provider output out of the result. Return JSON only.\n\nInventory:\n{{results.inventory}}\n\nAdapters/broker review:\n{{results.review-adapters-broker}}\n\nDaemon/dashboard review:\n{{results.review-daemon-dashboard}}\n\nWorkflows/tooling review:\n{{results.review-workflows-tooling}}\n\nContribution/release review:\n{{results.review-contribution-release}}"
+    },
+    {
+      "name": "validation-plan",
+      "kind": "agent",
+      "provider": "codex",
+      "access": "read-only",
+      "disableFallback": true,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sequence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "step": { "type": "string" },
+                "command": { "type": "string" },
+                "reason": { "type": "string" },
+                "evidence": { "type": "string" }
+              },
+              "required": ["step", "command", "reason", "evidence"]
+            }
+          },
+          "acceptanceCriteria": { "type": "array", "items": { "type": "string" } },
+          "nextRun": { "type": "string" },
+          "externalGates": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["sequence", "acceptanceCriteria", "nextRun", "externalGates"]
+      },
+      "mockData": {
+        "sequence": [
+          {
+            "step": "baseline",
+            "command": "npm run ci",
+            "reason": "Dry-run fixture only.",
+            "evidence": "Replace with the actual audit result."
+          }
+        ],
+        "acceptanceCriteria": ["Every implemented priority has a focused regression test."],
+        "nextRun": "Run the focused maintainer-component-review workflow for the first P1.",
+        "externalGates": ["Provider availability and credentials must be checked separately."]
+      },
+      "prompt": "Turn the maintainer synthesis into an executable, ordered validation plan. Use only the evidence below and the actual repository contract. Separate offline commands from live provider checks and external release/auth gates. Do not execute commands, edit files, publish, or request credentials. Every command must be safe to run from {{cwd}} and diagnostics/live checks must disable fallback. Return JSON only.\n\nSynthesis:\n{{results.synthesis}}\n\nRemember the repository's normal gate is npm run ci, but add narrower commands when they give better evidence."
+    }
+  ]
+}

@@ -227,5 +227,34 @@
         "confirmIfDestructive": true
       }
     ]
+  },
+  "maintainer-component-audit": {
+    "name": "maintainer-component-audit",
+    "description": "Read-only inventory, independent component reviews, maintainer synthesis, and validation planning.",
+    "whenToUse": "When the next improvement is not yet identified and the maintainer needs evidence across the remaining production components.",
+    "antiPattern": "A focused bug with a known file and reproduction; use the focused review or the normal contribution workflow instead.",
+    "phases": [
+      { "name": "baseline", "role": "explorer", "demand": { "capabilities": ["sandbox"] }, "readOnly": true },
+      { "name": "policy", "role": "explorer", "demand": { "capabilities": ["sandbox"] }, "readOnly": true },
+      { "name": "inventory", "role": "architect", "demand": { "capabilities": ["structuredOutput", "sandbox"] }, "readOnly": true, "output": "structured" },
+      { "name": "review-adapters-broker", "role": "architect", "demand": { "capabilities": ["structuredOutput", "sandbox"] }, "readOnly": true, "output": "structured" },
+      { "name": "review-daemon-dashboard", "role": "architect", "demand": { "capabilities": ["structuredOutput", "sandbox"] }, "readOnly": true, "output": "structured" },
+      { "name": "review-workflows-tooling", "role": "architect", "demand": { "capabilities": ["structuredOutput", "sandbox"] }, "readOnly": true, "output": "structured" },
+      { "name": "review-contribution-release", "role": "architect", "demand": { "capabilities": ["structuredOutput", "sandbox"] }, "readOnly": true, "output": "structured" },
+      { "name": "synthesis", "role": "judge", "demand": { "capabilities": ["structuredOutput", "sandbox"] }, "readOnly": true, "output": "structured" },
+      { "name": "validation-plan", "role": "architect", "demand": { "capabilities": ["structuredOutput", "sandbox"] }, "readOnly": true, "output": "structured" }
+    ]
+  },
+  "maintainer-component-review": {
+    "name": "maintainer-component-review",
+    "description": "Focused read-only review and improvement plan for one Clibridge component.",
+    "whenToUse": "When the audit or maintainer already has a component and needs a small, evidence-backed next change.",
+    "antiPattern": "Implementation work, publishing, or a review that requires changing files; use a gated contribution workflow for those actions.",
+    "phases": [
+      { "name": "baseline", "role": "explorer", "demand": { "capabilities": ["sandbox"] }, "readOnly": true },
+      { "name": "policy", "role": "explorer", "demand": { "capabilities": ["sandbox"] }, "readOnly": true },
+      { "name": "review", "role": "architect", "demand": { "capabilities": ["structuredOutput", "sandbox"] }, "readOnly": true, "output": "structured" },
+      { "name": "improvement-plan", "role": "judge", "demand": { "capabilities": ["structuredOutput", "sandbox"] }, "readOnly": true, "output": "structured" }
+    ]
   }
 }

@@ -1,0 +1,125 @@
+{
+  "name": "maintainer-component-review",
+  "description": "Focused read-only review of one Clibridge component, producing a small improvement plan for the next gated change.",
+  "contractFormat": "json",
+  "disableFallback": true,
+  "access": "read-only",
+  "inputDefaults": {
+    "component": "daemon-dashboard",
+    "paths": "Inspect the component's source, tests, docs, and direct consumers.",
+    "focus": "correctness, security, operability, test coverage, and maintainability",
+    "allowWrite": false
+  },
+  "phases": [
+    {
+      "name": "baseline",
+      "kind": "read-files",
+      "maxBytes": 12000,
+      "files": [
+        "AGENTS.md",
+        "agents.local.md",
+        "CONTRIBUTING.md",
+        "README.md",
+        "docs/architecture.md",
+        "docs/workflow-executor-contract.md",
+        "package.json"
+      ]
+    },
+    {
+      "name": "policy",
+      "kind": "policy",
+      "assertions": [
+        {
+          "input": "allowWrite",
+          "equals": false,
+          "message": "The focused component review is read-only; use a separate gated implementation workflow for changes."
+        }
+      ]
+    },
+    {
+      "name": "review",
+      "kind": "agent",
+      "provider": "codex",
+      "access": "read-only",
+      "disableFallback": true,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "component": { "type": "string" },
+          "scopeChecked": { "type": "array", "items": { "type": "string" } },
+          "strengths": { "type": "array", "items": { "type": "string" } },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string" },
+                "severity": { "type": "string", "enum": ["high", "medium", "low"] },
+                "path": { "type": "string" },
+                "summary": { "type": "string" },
+                "evidence": { "type": "string" },
+                "recommendation": { "type": "string" },
+                "validation": { "type": "string" }
+              },
+              "required": ["id", "severity", "path", "summary", "evidence", "recommendation", "validation"]
+            }
+          },
+          "coverageGaps": { "type": "array", "items": { "type": "string" } },
+          "confidence": { "type": "string", "enum": ["low", "medium", "high"] }
+        },
+        "required": ["component", "scopeChecked", "strengths", "findings", "coverageGaps", "confidence"]
+      },
+      "mockData": {
+        "component": "daemon-dashboard",
+        "scopeChecked": ["Dry-run fixture only."],
+        "strengths": ["Dry-run fixture only."],
+        "findings": [],
+        "coverageGaps": ["Replace fixture with source-backed review."],
+        "confidence": "low"
+      },
+      "prompt": "Perform a focused, read-only maintainer review of component '{{inputs.component}}' in the actual repository at {{cwd}}. The caller's path hint is: {{inputs.paths}}. Focus on {{inputs.focus}}. Inspect source, tests, docs, and direct consumers instead of guessing from names. Verify the baseline below, identify only concrete findings with path-based evidence, and give a validation command for each finding. Do not edit files, commit, publish, change credentials, or invoke fallback providers. Never include credentials, tokens, secret values, prompts containing secrets, or raw provider output. Return JSON only.\n\nBaseline:\n{{results.baseline}}"
+    },
+    {
+      "name": "improvement-plan",
+      "kind": "agent",
+      "provider": "codex",
+      "access": "read-only",
+      "disableFallback": true,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "component": { "type": "string" },
+          "priority": { "type": "string", "enum": ["P0", "P1", "P2", "none"] },
+          "recommendations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "title": { "type": "string" },
+                "rationale": { "type": "string" },
+                "files": { "type": "array", "items": { "type": "string" } },
+                "implementationSteps": { "type": "array", "items": { "type": "string" } },
+                "validation": { "type": "array", "items": { "type": "string" } },
+                "blockedBy": { "type": "array", "items": { "type": "string" } }
+              },
+              "required": ["title", "rationale", "files", "implementationSteps", "validation", "blockedBy"]
+            }
+          },
+          "stopReason": { "type": "string" }
+        },
+        "required": ["component", "priority", "recommendations", "stopReason"]
+      },
+      "mockData": {
+        "component": "daemon-dashboard",
+        "priority": "none",
+        "recommendations": [],
+        "stopReason": "Dry-run fixture only; run the review against the checkout before deciding."
+      },
+      "prompt": "Act as the maintainer judge for the focused component review. Based only on the evidence below, propose at most three small, ordered improvements for '{{inputs.component}}'. Prefer a narrow change with a focused regression test. Mark external provider, credential, GitHub, npm, or deployment constraints in blockedBy; do not turn them into implementation work. If no evidence supports a change, use priority 'none' and explain why. Do not edit files or execute commands. Return JSON only.\n\nReview evidence:\n{{results.review}}"
+    }
+  ]
+}
