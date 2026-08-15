@@ -77,6 +77,204 @@ test('runWorkflow executes read-files, policy, agent dry-run, and shell dry-run 
   }
 })
 
+test('runWorkflow can execute an explicitly safe shell phase during dry-run', async () => {
+  const dir = tempDir()
+  try {
+    fs.writeFileSync(path.join(dir, 'required.txt'), 'present')
+    const workflowPath = path.join(dir, 'workflow.json')
+    writeJson(workflowPath, {
+      name: 'safe-preflight-workflow',
+      phases: [{
+        name: 'preflight',
+        kind: 'shell',
+        runInDryRun: true,
+        command: 'test -s required.txt',
+      }],
+    })
+
+    const result = await runWorkflow({ workflowPath, cwd: dir, task: 'preflight', dryRun: true })
+    assert.equal(result.ok, true)
+    assert.match(result.results.preflight, /\$ test -s required\.txt/)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('runWorkflow validates schema-compatible mockData during dry-run', async () => {
+  const dir = tempDir()
+  try {
+    const workflowPath = path.join(dir, 'workflow.json')
+    writeJson(workflowPath, {
+      name: 'mock-data-workflow',
+      phases: [
+        {
+          name: 'plan',
+          kind: 'agent',
+          provider: 'codex',
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            properties: { status: { type: 'string' } },
+            required: ['status'],
+          },
+          mockData: { status: 'ok' },
+        },
+      ],
+    })
+
+    const result = await runWorkflow({
+      workflowPath,
+      cwd: dir,
+      task: 'dry-run with structured data',
+      dryRun: true,
+    })
+
+    assert.equal(result.ok, true)
+    assert.deepEqual(JSON.parse(result.results.plan), { status: 'ok' })
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('write-file publishes a structured field inside the allowed path without a git repository', async () => {
+  const dir = tempDir()
+  try {
+    const workflowPath = path.join(dir, 'workflow.json')
+    writeJson(workflowPath, {
+      name: 'controlled-publish-workflow',
+      phases: [
+        {
+          name: 'draft',
+          kind: 'agent',
+          provider: 'mock',
+          schema: {
+            type: 'object',
+            required: ['report_markdown'],
+            properties: { report_markdown: { type: 'string' } },
+          },
+        },
+        {
+          name: 'publish',
+          kind: 'write-file',
+          access: 'workspace-write',
+          allowedWritePaths: ['reports/**'],
+          file: 'reports/result.md',
+          sourceResult: 'draft',
+          sourceField: 'report_markdown',
+        },
+      ],
+    })
+
+    const result = await runWorkflow({ workflowPath, cwd: dir, task: 'publish' }, {
+      adapters: {
+        mock: async (request) => ({
+          ok: true,
+          runId: request.runId,
+          provider: request.provider,
+          phase: request.phase,
+          label: request.label,
+          durationMs: 1,
+          attempts: 1,
+          structured: true,
+          data: { report_markdown: '# controlled report' },
+          text: '',
+          usage: {},
+          artifacts: [],
+          warnings: [],
+        }),
+      },
+    })
+
+    assert.equal(result.ok, true)
+    assert.equal(fs.readFileSync(path.join(dir, 'reports', 'result.md'), 'utf8'), '# controlled report\n')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('write-file rejects a path outside cwd before writing', async () => {
+  const dir = tempDir()
+  try {
+    const workflowPath = path.join(dir, 'workflow.json')
+    writeJson(workflowPath, {
+      name: 'reject-escape-workflow',
+      phases: [{
+        name: 'publish',
+        kind: 'write-file',
+        access: 'workspace-write',
+        allowedWritePaths: ['reports/**'],
+        file: '../escaped.md',
+        sourceResult: 'draft',
+      }],
+    })
+
+    const result = await runWorkflow({
+      workflowPath,
+      cwd: dir,
+      task: 'reject escape',
+      inputs: {},
+    })
+
+    assert.equal(result.ok, false)
+    assert.match(result.error, /cannot write outside cwd/)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('write-file rejects a symlink path that resolves outside cwd', async () => {
+  const dir = tempDir()
+  const outside = tempDir()
+  try {
+    fs.symlinkSync(outside, path.join(dir, 'reports'), 'dir')
+    const workflowPath = path.join(dir, 'workflow.json')
+    writeJson(workflowPath, {
+      name: 'reject-symlink-escape-workflow',
+      phases: [
+        {
+          name: 'draft',
+          kind: 'agent',
+          provider: 'mock',
+        },
+        {
+          name: 'publish',
+          kind: 'write-file',
+          access: 'workspace-write',
+          allowedWritePaths: ['reports/**'],
+          file: 'reports/result.md',
+          sourceResult: 'draft',
+        },
+      ],
+    })
+
+    const result = await runWorkflow({ workflowPath, cwd: dir, task: 'reject symlink escape' }, {
+      adapters: {
+        mock: async (request) => ({
+          ok: true,
+          runId: request.runId,
+          provider: request.provider,
+          phase: request.phase,
+          label: request.label,
+          durationMs: 1,
+          attempts: 1,
+          structured: false,
+          text: '# escaped report',
+          usage: {},
+          artifacts: [],
+          warnings: [],
+        }),
+      },
+    })
+
+    assert.equal(result.ok, false)
+    assert.match(result.error, /cannot write outside cwd/)
+    assert.equal(fs.existsSync(path.join(outside, 'result.md')), false)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+    fs.rmSync(outside, { recursive: true, force: true })
+  }
+})
+
 test('runWorkflow returns ok=false when a policy assertion rejects inputs', async () => {
   const dir = tempDir()
   try {

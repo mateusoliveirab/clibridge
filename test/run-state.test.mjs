@@ -74,3 +74,21 @@ test('run-state complete lifecycle', () => {
     }
   }
 })
+
+test('run-state can be scoped to the workflow target directory', () => {
+  const runsDir = fs.mkdtempSync(path.join(process.cwd(), '.bridge-runs-target-'))
+  const runId = newRunId('scoped-workflow')
+  try {
+    startRun({ runId, workflow: 'scoped-workflow', phases: ['phase'], runsDir })
+    phaseStart(runId, 'phase', 0, 'mock-provider', { runsDir })
+    phaseEnd(runId, 'phase', true, 5, { runsDir })
+    endRun(runId, true, { runsDir })
+
+    const state = readRun(runId, { runsDir })
+    assert.equal(state?.status, 'done')
+    assert.equal(listRuns({ runsDir }).some(run => run.runId === runId), true)
+    assert.equal(latestRunId({ runsDir }), runId)
+  } finally {
+    fs.rmSync(runsDir, { recursive: true, force: true })
+  }
+})

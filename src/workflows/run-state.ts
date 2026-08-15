@@ -1,7 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-const bridgeRunsDir = path.join(process.cwd(), '.bridge-runs')
+const defaultBridgeRunsDir = path.join(process.cwd(), '.bridge-runs')
+
+export interface RunStateOptions {
+  runsDir?: string
+}
 
 export interface RunEvent {
   ts: number
@@ -38,16 +42,21 @@ export interface RunState {
   elapsedMs: number
 }
 
-function getRunFilePath(runId: string): string {
-  return path.join(bridgeRunsDir, `${runId}.jsonl`)
+function resolveRunsDir(options: RunStateOptions = {}): string {
+  return options.runsDir ? path.resolve(options.runsDir) : defaultBridgeRunsDir
 }
 
-function appendEvent(runId: string, event: RunEvent): void {
+function getRunFilePath(runId: string, options: RunStateOptions = {}): string {
+  return path.join(resolveRunsDir(options), `${runId}.jsonl`)
+}
+
+function appendEvent(runId: string, event: RunEvent, options: RunStateOptions = {}): void {
+  const runsDir = resolveRunsDir(options)
   try {
-    if (!fs.existsSync(bridgeRunsDir)) {
-      fs.mkdirSync(bridgeRunsDir, { recursive: true })
+    if (!fs.existsSync(runsDir)) {
+      fs.mkdirSync(runsDir, { recursive: true })
     }
-    const filePath = getRunFilePath(runId)
+    const filePath = getRunFilePath(runId, options)
     fs.appendFileSync(filePath, JSON.stringify(event) + '\n')
   } catch (err) {
     // Degrade silently
@@ -60,7 +69,7 @@ export function newRunId(workflow: string): string {
   return `${workflow}-${ts}-${random}`
 }
 
-export function startRun(opts: { runId: string; workflow: string; description?: string; phases: string[] }): void {
+export function startRun(opts: { runId: string; workflow: string; description?: string; phases: string[] } & RunStateOptions): void {
   appendEvent(opts.runId, {
     ts: Date.now(),
     type: 'run-start',
@@ -69,10 +78,10 @@ export function startRun(opts: { runId: string; workflow: string; description?: 
     description: opts.description,
     totalPhases: opts.phases.length,
     phases: opts.phases
-  })
+  }, opts)
 }
 
-export function phaseStart(runId: string, phase: string, phaseIndex: number, provider: string): void {
+export function phaseStart(runId: string, phase: string, phaseIndex: number, provider: string, options: RunStateOptions = {}): void {
   appendEvent(runId, {
     ts: Date.now(),
     type: 'phase-start',
@@ -80,10 +89,10 @@ export function phaseStart(runId: string, phase: string, phaseIndex: number, pro
     phase,
     phaseIndex,
     provider
-  })
+  }, options)
 }
 
-export function phaseEnd(runId: string, phase: string, ok: boolean, durationMs: number): void {
+export function phaseEnd(runId: string, phase: string, ok: boolean, durationMs: number, options: RunStateOptions = {}): void {
   appendEvent(runId, {
     ts: Date.now(),
     type: 'phase-end',
@@ -91,20 +100,20 @@ export function phaseEnd(runId: string, phase: string, ok: boolean, durationMs: 
     phase,
     ok,
     durationMs
-  })
+  }, options)
 }
 
-export function endRun(runId: string, ok: boolean): void {
+export function endRun(runId: string, ok: boolean, options: RunStateOptions = {}): void {
   appendEvent(runId, {
     ts: Date.now(),
     type: 'run-end',
     runId,
     ok
-  })
+  }, options)
 }
 
-export function readRun(runId: string): RunState | null {
-  const filePath = getRunFilePath(runId)
+export function readRun(runId: string, options: RunStateOptions = {}): RunState | null {
+  const filePath = getRunFilePath(runId, options)
   if (!fs.existsSync(filePath)) {
     return null
   }
@@ -168,12 +177,13 @@ export function readRun(runId: string): RunState | null {
   return state
 }
 
-export function listRuns(): Array<{ runId: string; workflow: string; status: string; startedAt: number }> {
-  if (!fs.existsSync(bridgeRunsDir)) return []
+export function listRuns(options: RunStateOptions = {}): Array<{ runId: string; workflow: string; status: string; startedAt: number }> {
+  const runsDir = resolveRunsDir(options)
+  if (!fs.existsSync(runsDir)) return []
 
   let files: string[]
   try {
-    files = fs.readdirSync(bridgeRunsDir)
+    files = fs.readdirSync(runsDir)
   } catch (e) {
     return []
   }
@@ -183,9 +193,9 @@ export function listRuns(): Array<{ runId: string; workflow: string; status: str
   for (const file of files) {
     if (file.endsWith('.jsonl')) {
       const runId = file.slice(0, -6)
-      const state = readRun(runId)
+      const state = readRun(runId, options)
       if (state) {
-        const filePath = getRunFilePath(runId)
+        const filePath = getRunFilePath(runId, options)
         let mtime = 0
         try {
           const stats = fs.statSync(filePath)
@@ -215,8 +225,8 @@ export function listRuns(): Array<{ runId: string; workflow: string; status: str
   }))
 }
 
-export function latestRunId(): string | null {
-  const runs = listRuns()
+export function latestRunId(options: RunStateOptions = {}): string | null {
+  const runs = listRuns(options)
   if (runs.length > 0) {
     return runs[0].runId
   }

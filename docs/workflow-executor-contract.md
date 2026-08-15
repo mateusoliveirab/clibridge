@@ -42,11 +42,13 @@ Input:
 }
 ```
 
-The executor loads `workflowPath`, runs phases in order, records run-state under the target `cwd`, and returns structured phase results.
+The executor loads `workflowPath`, runs phases in order, records run-state under `<cwd>/.bridge-runs/`, and returns structured phase results.
 
 `contractFormat` is optional and defaults to `json`. When set to `toon`, object-valued template variables in agent prompts, such as `{{inputs}}` or `{{results}}`, render as TOON instead of pretty JSON. Shell command templates keep JSON-style rendering to avoid changing command semantics.
 
 `timeoutMs` is optional and is forwarded to each delegated `run_agent` call. It is useful for live validation workflows that exercise multiple real provider CLIs.
+
+An agent phase may set `mockText` or `mockData` for `dryRun` execution. `mockData` is passed to the broker as the dry-run structured result and is validated against the phase `schema`, allowing schema-bearing workflows to test their complete control flow without invoking a provider CLI.
 
 `dangerouslySkipPermissions` is optional and requests unattended permission skipping for providers that support it. The CLI exposes this as `--dangerously-skip-permissions`. A workflow or phase must also set `allowDangerousPermissions: true`; otherwise the executor rejects the phase before dispatching a provider.
 
@@ -84,6 +86,13 @@ The current workflow object format supports these phase kinds:
 - `policy`: applies structured assertions to `inputs` before mutating work starts.
 - `agent`: renders a prompt template and delegates to a provider through `run_agent`.
 - `shell`: runs one or more repo-local validation commands.
+- `write-file`: writes a prior result (or one JSON field from it) to one explicit, repo-local path. It is the preferred way to publish generated text; provider agents should remain read-only.
+
+Agent phases may define `schema`, `mockText`, and `mockData`. `mockData` is only used when the workflow input has `dryRun: true`; it does not bypass schema validation.
+
+`write-file` phases require `file`, `sourceResult`, and optionally `sourceField`. The target must remain inside the real path of `cwd` (symlink escapes are rejected) and, when `allowedWritePaths` is set, match one of those patterns. In `dryRun`, the phase validates the source and reports what it would write without creating a file.
+
+Shell phases are skipped in `dryRun` unless they set `runInDryRun: true`. Use that flag only for idempotent, read-only preflight checks such as `test -s`.
 
 Template variables available in agent prompts:
 
