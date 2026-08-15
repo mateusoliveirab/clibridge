@@ -72,6 +72,10 @@ model is configured through Clibridge, it must truthfully declare and enforce
 those capabilities or the broker will fail closed. Do not weaken the workflow
 to accommodate a provider that cannot guarantee read-only execution.
 
+The maintainer routes set `reasoningEffort: "high"` for Codex review phases.
+This bounds automated review latency without changing the user's global Codex
+configuration; the workflow remains read-only and fail-closed.
+
 The workflow's phase results are recorded through the normal daemon/ledger path
 when called through MCP, while the direct executor also keeps `.bridge-runs`
 run-state evidence. Inspect the returned structured result and use the first

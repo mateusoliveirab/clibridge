@@ -236,7 +236,7 @@
     "phases": [
       { "name": "baseline", "role": "explorer", "demand": { "capabilities": ["sandbox"] }, "readOnly": true },
       { "name": "policy", "role": "explorer", "demand": { "capabilities": ["sandbox"] }, "readOnly": true },
-      { "name": "inventory", "role": "architect", "demand": { "capabilities": ["structuredOutput", "sandbox"] }, "readOnly": true, "output": "structured" },
+      { "name": "inventory", "role": "explorer", "demand": { "capabilities": ["sandbox"] }, "readOnly": true },
       { "name": "review-adapters-broker", "role": "architect", "demand": { "capabilities": ["structuredOutput", "sandbox"] }, "readOnly": true, "output": "structured" },
       { "name": "review-daemon-dashboard", "role": "architect", "demand": { "capabilities": ["structuredOutput", "sandbox"] }, "readOnly": true, "output": "structured" },
       { "name": "review-workflows-tooling", "role": "architect", "demand": { "capabilities": ["structuredOutput", "sandbox"] }, "readOnly": true, "output": "structured" },

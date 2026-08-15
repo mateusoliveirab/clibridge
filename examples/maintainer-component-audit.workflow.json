@@ -13,18 +13,15 @@
     {
       "name": "baseline",
       "kind": "read-files",
-      "maxBytes": 14000,
+      "maxBytes": 7000,
       "files": [
         "AGENTS.md",
         "agents.local.md",
         "CONTRIBUTING.md",
-        "README.md",
         "docs/architecture.md",
         "docs/workflow-executor-contract.md",
         "package.json",
-        "tsconfig.json",
-        ".github/workflows/ci.yml",
-        ".github/workflows/release-please.yml"
+        "tsconfig.json"
       ]
     },
     {
@@ -40,57 +37,18 @@
     },
     {
       "name": "inventory",
-      "kind": "agent",
-      "provider": "codex",
+      "kind": "shell",
       "access": "read-only",
-      "disableFallback": true,
-      "schema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "components": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "name": { "type": "string" },
-                "paths": { "type": "array", "items": { "type": "string" } },
-                "status": { "type": "string", "enum": ["healthy", "needs-review", "blocked"] },
-                "risk": { "type": "string", "enum": ["low", "medium", "high"] },
-                "evidence": { "type": "string" },
-                "nextReview": { "type": "string" }
-              },
-              "required": ["name", "paths", "status", "risk", "evidence", "nextReview"]
-            }
-          },
-          "crossCuttingRisks": { "type": "array", "items": { "type": "string" } },
-          "reviewOrder": { "type": "array", "items": { "type": "string" } },
-          "confidence": { "type": "string", "enum": ["low", "medium", "high"] }
-        },
-        "required": ["components", "crossCuttingRisks", "reviewOrder", "confidence"]
-      },
-      "mockData": {
-        "components": [
-          {
-            "name": "adapters-broker",
-            "paths": ["src/adapters/", "src/broker/"],
-            "status": "needs-review",
-            "risk": "medium",
-            "evidence": "Dry-run fixture only; inspect the checkout for current evidence.",
-            "nextReview": "Verify capability routing, normalized errors, and offline coverage."
-          }
-        ],
-        "crossCuttingRisks": ["Dry-run fixture; replace with evidence from the checkout."],
-        "reviewOrder": ["adapters-broker", "daemon-dashboard", "workflows-tooling", "contribution-release"],
-        "confidence": "low"
-      },
-      "prompt": "Act as the delegated maintainer performing a read-only inventory of the actual repository at {{cwd}}. The requested scope is {{inputs.scope}} and the review depth is {{inputs.reviewDepth}}. Read the source, tests, docs, and configuration; do not edit files, commit, publish, or invoke a provider fallback. Treat the baseline below as a starting point, not as proof. Map the production components that still need review, their ownership boundaries, current evidence, risk, and the next concrete review gate. Include adapters/broker, daemon/dashboard, workflow executor/run-state, contribution/release tooling, tests, and documentation where relevant. Never include credentials, tokens, secret values, prompts containing secrets, or raw provider output; redact any accidental sensitive material. Return JSON only, matching the schema.\n\nBaseline context:\n{{results.baseline}}"
+      "commands": [
+        "find src/adapters src/broker src/daemon src/workflows dashboard test -maxdepth 2 -type f | sort",
+        "git status --short --branch"
+      ]
     },
     {
       "name": "review-adapters-broker",
       "kind": "agent",
       "provider": "codex",
+      "reasoningEffort": "high",
       "access": "read-only",
       "disableFallback": true,
       "schema": {
@@ -136,6 +94,7 @@
       "name": "review-daemon-dashboard",
       "kind": "agent",
       "provider": "codex",
+      "reasoningEffort": "high",
       "access": "read-only",
       "disableFallback": true,
       "schema": {
@@ -181,6 +140,7 @@
       "name": "review-workflows-tooling",
       "kind": "agent",
       "provider": "codex",
+      "reasoningEffort": "high",
       "access": "read-only",
       "disableFallback": true,
       "schema": {
@@ -226,6 +186,7 @@
       "name": "review-contribution-release",
       "kind": "agent",
       "provider": "codex",
+      "reasoningEffort": "high",
       "access": "read-only",
       "disableFallback": true,
       "schema": {
@@ -271,6 +232,7 @@
       "name": "synthesis",
       "kind": "agent",
       "provider": "codex",
+      "reasoningEffort": "high",
       "access": "read-only",
       "disableFallback": true,
       "schema": {
@@ -324,6 +286,7 @@
       "name": "validation-plan",
       "kind": "agent",
       "provider": "codex",
+      "reasoningEffort": "high",
       "access": "read-only",
       "disableFallback": true,
       "schema": {

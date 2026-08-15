@@ -63,6 +63,21 @@ test('selectRoute exposes useModel override distinct from the model match field'
   assert.equal(route.useModel, 'gemini-2.0-flash')
 })
 
+test('selectRoute preserves reasoning effort as a provider override', () => {
+  const route = selectRoute({
+    defaultProvider: 'codex',
+    routes: [
+      { phase: 'Review', provider: 'codex', reasoningEffort: 'high' },
+    ],
+  }, {
+    phase: 'Review',
+    label: 'review:1',
+  })
+
+  assert.equal(route.provider, 'codex')
+  assert.equal(route.reasoningEffort, 'high')
+})
+
 test('selectRoute does not select a route whose model match differs from the request model', () => {
   const route = selectRoute({
     defaultProvider: 'codex',
@@ -95,4 +110,3 @@ test('selectRoute can require image attachments', () => {
 
   assert.equal(route.provider, 'codex')
 })
-

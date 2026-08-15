@@ -31,6 +31,7 @@ test('maintainer workflows are strict read-only, structured, and no-fallback con
       assert.equal(phase.access, 'read-only')
       assert.equal(phase.disableFallback, true)
       assert.equal(typeof phase.provider, 'string')
+      assert.equal(phase.reasoningEffort, 'high')
       assert.ok(phase.schema)
       assert.ok(phase.mockData)
     }
@@ -40,6 +41,7 @@ test('maintainer workflows are strict read-only, structured, and no-fallback con
   assert.equal(routes.defaultProvider, 'codex')
   assert.ok(routes.routes.length >= 2)
   assert.ok(routes.routes.every(route => route.sandbox === 'read-only'))
+  assert.ok(routes.routes.every(route => route.reasoningEffort === 'high'))
 
   const registry = readJson(registryPath)
   for (const name of ['maintainer-component-audit', 'maintainer-component-review']) {
