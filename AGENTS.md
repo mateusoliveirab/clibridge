@@ -4,6 +4,11 @@ This is the tool-neutral entry point for AI contributors. Read this file before
 changing code; use [CONTRIBUTING.md](CONTRIBUTING.md) for the human workflow and
 [docs/architecture.md](docs/architecture.md) for the system contract.
 
+When present, also read [agents.local.md](agents.local.md). It defines the
+delegated maintainer operating mode and the routing policy for this checkout.
+It may authorize routine in-scope execution, but it never weakens the
+non-negotiable rules below or external platform protections.
+
 ## Repository map
 
 - `src/adapters/` — provider-specific command construction and capability checks.
