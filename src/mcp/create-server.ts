@@ -4,7 +4,7 @@ import { join, dirname } from 'node:path'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { runAgent } from '../broker/run-agent.ts'
 import { runWorkflow } from '../workflows/workflow-executor.ts'
-import { runWorkflowThroughDaemon } from '../daemon/client.ts'
+import { daemonFor, runWorkflowThroughDaemon } from '../daemon/client.ts'
 import { runAgentThroughDaemon } from '../daemon/client.ts'
 import { defaultAdapters } from '../adapters/registry.ts'
 import { providerStatuses } from '../adapters/availability.ts'
@@ -38,11 +38,15 @@ export function createMcpServer(options: CreateMcpServerOptions = {}): McpServer
     description: 'Routes a Claude workflow agent request to Codex, OpenCode, Gemini, or Claude through the local bridge.',
     inputSchema: AgentInputSchema.shape,
   }, async (input) => {
-    const config = input.routeConfigPath
-      ? await loadJsonConfig(input.routeConfigPath)
+    const daemon = await daemonFor(input.cwd, { adapters: options.adapters, config: options.config })
+    const routeConfigPath = input.routeConfigPath
+      ? daemon.validateRouteConfigPath(input.routeConfigPath)
+      : undefined
+    const config = routeConfigPath
+      ? await loadJsonConfig(routeConfigPath)
       : (options.config || {})
 
-    const result = await runAgentThroughDaemon(input as AgentInput, {
+    const result = await runAgentThroughDaemon({ ...input, routeConfigPath } as AgentInput, {
       config,
       adapters: options.adapters,
       dangerouslySkipPermissions: options.dangerouslySkipPermissions,
