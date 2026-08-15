@@ -89,6 +89,24 @@ test('local console rejects untrusted requests and restricts workflow writes', a
   }
 })
 
+test('local console rejects workflow symlinks that resolve outside the project', async () => {
+  const cwd = project()
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'clibridge-console-outside-'))
+  let serving
+  try {
+    fs.writeFileSync(path.join(outside, 'outside.workflow.json'), JSON.stringify({ name: 'outside', phases: [] }))
+    fs.symlinkSync(path.join(outside, 'outside.workflow.json'), path.join(cwd, 'linked.workflow.json'))
+    serving = await serveProject(cwd)
+
+    const response = await request(`${serving.url}/api/workflows/linked.workflow.json`, 'GET')
+    assert.equal(response.status, 400)
+  } finally {
+    await serving?.close()
+    fs.rmSync(cwd, { recursive: true, force: true })
+    fs.rmSync(outside, { recursive: true, force: true })
+  }
+})
+
 test('serveProject.close() resolves promptly with an open SSE connection', async () => {
   const cwd = project()
   let serving

@@ -8,6 +8,7 @@ import { runAgent } from '../broker/run-agent.ts'
 import { defaultAdapters } from '../adapters/registry.ts'
 import { loadJsonConfig } from '../config/load-config.ts'
 import { loadStructuredDataFileSync } from '../config/structured-data.ts'
+import { startRun, phaseStart, phaseEnd, endRun } from './run-state.ts'
 import { resolveRole } from './roles.ts'
 import { AccessModeSchema } from '../types.ts'
 import type { AccessMode, BridgeConfig, Envelope } from '../types.ts'
@@ -164,6 +165,14 @@ export async function runWorkflow(
   const config = input.routeConfigPath
     ? await loadJsonConfig(input.routeConfigPath)
     : (options.config || {})
+
+  startRun({
+    runId,
+    workflow: workflow.name,
+    description: input.task,
+    phases: workflow.phases.map(phase => phase.name),
+    runsDir,
+  })
 
   await options.observer?.runStart?.({
     runId,

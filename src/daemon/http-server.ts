@@ -105,7 +105,7 @@ function listWorkflows(cwd: string): Array<{ path: string; format: string }> {
   })
   return walk(cwd).filter(file => {
     try {
-      const source = fs.readFileSync(path.join(cwd, file), 'utf8')
+      const source = fs.readFileSync(safeProjectPath(cwd, file), 'utf8')
       WorkflowFileSchema.parse(file.endsWith('.toon') ? decodeToon(source) : JSON.parse(source))
       return true
     } catch { return false }
@@ -144,8 +144,25 @@ function staticFile(request: http.IncomingMessage, response: http.ServerResponse
 }
 
 function safeProjectPath(cwd: string, relative: string): string {
+  const realCwd = fs.realpathSync(cwd)
   const target = path.resolve(cwd, relative)
   if (target !== cwd && !target.startsWith(`${cwd}${path.sep}`)) throw new Error('Path is outside the project.')
+
+  // Lexical containment is not enough for the console API: a workflow file or
+  // one of its parent directories can be a symlink to another project.
+  let existing = target
+  while (!fs.existsSync(existing)) {
+    const parent = path.dirname(existing)
+    if (parent === existing) break
+    existing = parent
+  }
+  const realExisting = fs.realpathSync(existing)
+  const unresolvedSuffix = path.relative(existing, target)
+  const realTarget = path.resolve(realExisting, unresolvedSuffix)
+  const relativeTarget = path.relative(realCwd, realTarget)
+  if (relativeTarget === '..' || relativeTarget.startsWith(`..${path.sep}`) || path.isAbsolute(relativeTarget)) {
+    throw new Error('Path resolves outside the project.')
+  }
   return target
 }
 function writeMetadata(daemon: LocalDaemon, metadata: object): void { fs.writeFileSync(path.join(daemon.ledger.stateDir, 'daemon.json'), JSON.stringify(metadata, null, 2), { mode: 0o600 }) }
