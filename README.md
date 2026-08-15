@@ -306,7 +306,7 @@ Runs a declarative workflow file through the generic MCP workflow executor. This
 }
 ```
 
-`contractFormat: "toon"` affects agent-to-agent prompt context such as `{{inputs}}`, `{{results}}`, and structured phase results passed to later agents. It does not change MCP `structuredContent`, JSON Schema validation, normalized provider envelopes, shell command rendering, or `.bridge-runs/*.jsonl`.
+`contractFormat: "toon"` affects agent-to-agent prompt context such as `{{inputs}}`, `{{results}}`, and structured phase results passed to later agents. It does not change MCP `structuredContent`, JSON Schema validation, normalized provider envelopes, shell command rendering, or the run ledger (`.clibridge/runs.db`).
 
 ---
 
@@ -326,7 +326,7 @@ Create a `route-config.json` at your repository root to govern automatic tool ex
 
 *If no route configuration matches, the broker will auto-select a provider only if exactly one available CLI satisfies the requested capabilities.*
 
-`routeConfigPath` also accepts `.toon` files. TOON is decoded at the file boundary and then validated as the same internal JSON-compatible object model; MCP responses, JSON Schema payloads, and `.bridge-runs/*.jsonl` remain JSON.
+`routeConfigPath` also accepts `.toon` files. TOON is decoded at the file boundary and then validated as the same internal JSON-compatible object model; MCP responses and JSON Schema payloads remain JSON.
 
 ---
 
@@ -346,6 +346,27 @@ This runs the reference `github-contribution` CLI workflow as a code architectur
 
 `clibridge` includes command-line tools to monitor executions and discover workflows dynamically:
 
+### Local Visual Console
+
+Start a project-local daemon and open the printed URL in a browser:
+
+```bash
+bridge serve --cwd /path/to/project
+```
+
+The console listens only on `127.0.0.1`, stores its SQLite ledger in
+`.clibridge/runs.db`, and shows run history, approval decisions, redacted
+output, provider markers, and a visual workflow studio. The Studio edits the
+same JSON or TOON files used by the executor; its canvas represents the
+runtime's sequential phase order.
+
+Two safe examples are included: `examples/console-smoke.workflow.json` and
+`examples/approval-gate.workflow.json` (use **dry run** for the latter).
+
+```bash
+bridge runs purge --days 30 --cwd /path/to/project
+```
+
 ### 1. Generic CLI (`bridge-cli`)
 Inspect and execute workflows natively:
 ```bash
@@ -357,11 +378,11 @@ node --import tsx bin/bridge-cli.mjs run <workflow-path> --task "prompt" --contr
 ```
 
 ### 2. Live Run TUI Monitor (`bridge-monitor`)
-Tails and visualizes the state of current or past runs in your terminal:
+Visualizes the state of current or past runs from the run ledger (`.clibridge/runs.db`, requires `npm run build` first):
 ```bash
-node --import tsx bin/bridge-monitor.mjs            # Live TUI tailing active runs
-node --import tsx bin/bridge-monitor.mjs --once     # Single terminal frame print
-node --import tsx bin/bridge-monitor.mjs --run <id> # Focus a specific run
+node bin/bridge-monitor.mjs            # Live TUI tailing active runs
+node bin/bridge-monitor.mjs --once     # Single terminal frame print
+node bin/bridge-monitor.mjs --run <id> # Focus a specific run
 ```
 
 ---

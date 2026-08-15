@@ -3,6 +3,7 @@
 // whose whole job is normalizing heterogeneous CLIs into one stable shape.
 
 import { z } from 'zod'
+import type { CliAdapterConfig } from './adapters/config-types.ts'
 
 export const AccessModeSchema = z.enum(['read-only', 'workspace-write', 'unrestricted'])
 
@@ -54,6 +55,9 @@ export interface Route {
   requiresImages?: boolean
   // overrides applied on match
   provider?: string
+  // Forces the dispatched model regardless of request.model or the `model`
+  // match criterion above (which only filters candidates, never overrides).
+  useModel?: string
   sandbox?: string
   timeoutMs?: number
   maxRetries?: number
@@ -63,6 +67,13 @@ export interface Route {
 export interface BridgeConfig {
   defaultProvider?: string
   routes?: Route[]
+  /** User-declared provider CLIs, resolved via createConfigAdapter — config-only, no rebuild required. */
+  adapters?: Record<string, CliAdapterConfig>
+  /** Overrides the built-in STRENGTH_PREFERENCE/COST_PREFERENCE provider rankings used by resolveRole. */
+  rolePreferences?: {
+    strength?: string[]
+    cost?: string[]
+  }
 }
 
 /** What the broker hands an adapter: input with routing + defaults resolved. */

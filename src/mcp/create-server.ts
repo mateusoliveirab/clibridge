@@ -4,6 +4,8 @@ import { join, dirname } from 'node:path'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { runAgent } from '../broker/run-agent.ts'
 import { runWorkflow } from '../workflows/workflow-executor.ts'
+import { runWorkflowThroughDaemon } from '../daemon/client.ts'
+import { runAgentThroughDaemon } from '../daemon/client.ts'
 import { defaultAdapters } from '../adapters/registry.ts'
 import { providerStatuses } from '../adapters/availability.ts'
 import { loadJsonConfig } from '../config/load-config.ts'
@@ -40,7 +42,7 @@ export function createMcpServer(options: CreateMcpServerOptions = {}): McpServer
       ? await loadJsonConfig(input.routeConfigPath)
       : (options.config || {})
 
-    const result = await runAgent(input as AgentInput, {
+    const result = await runAgentThroughDaemon(input as AgentInput, {
       config,
       adapters: options.adapters,
       dangerouslySkipPermissions: options.dangerouslySkipPermissions,
@@ -62,7 +64,7 @@ export function createMcpServer(options: CreateMcpServerOptions = {}): McpServer
     description: 'Loads a declarative workflow file, executes its phases, and delegates agent phases through the local bridge providers.',
     inputSchema: RunWorkflowInputSchema.shape,
   }, async (input) => {
-    const result = await runWorkflow(input, {
+    const result = await runWorkflowThroughDaemon(input, {
       config: options.config,
       adapters: options.adapters,
     })

@@ -7,7 +7,9 @@ import type { ResolvedRequest, Envelope } from '../types.ts'
 
 export const runGemini: AdapterFn = async (request: ResolvedRequest, runProcessFn: RunProcessFn = runProcess): Promise<Envelope> => {
   // Use agy (Antigravity CLI) as the engine for gemini provider, specifying a default Gemini model if none is requested.
-  const model = request.model || 'Gemini 3.5 Flash (High)'
+  // Precedence: explicit request.model > GEMINI_MODEL env override > hardcoded fallback,
+  // so a new default model can be rolled out via env without a code change.
+  const model = request.model || process.env.GEMINI_MODEL || 'Gemini 3.5 Flash (High)'
   // agy's flag parser only binds the prompt as a positional argument when it
   // directly follows --print; placed after other flags it silently drops the
   // prompt and falls back to open-ended filesystem exploration.

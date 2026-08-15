@@ -7,6 +7,8 @@ import { assertStructuredOutput, assertValidSchema } from './schema-validation.t
 import { selectRoute } from './routing.ts'
 import { requiredCapabilities, resolveAdapterEntry } from '../adapters/contract.ts'
 import { assertProviderCommandAvailable, selectOnlyAvailableProviderForDemand, getAvailableProvidersForDemand } from '../adapters/availability.ts'
+import { createConfigAdapter } from '../adapters/config-runner.ts'
+import { validateCliAdapterConfig } from '../adapters/config-types.ts'
 import type { AdapterEntry, ProviderAdapter, RequiredCapability } from '../adapters/contract.ts'
 import { BridgeError, ErrorCode, errorEnvelope } from './errors.ts'
 import { DEFAULT_TIMEOUT_MS, DEFAULT_ENV_ALLOWLIST } from '../config/constants.ts'
@@ -56,9 +58,24 @@ function assertProviderSupports(adapter: ProviderAdapter, request: ResolvedReque
   }
 }
 
+// Resolves the effective adapter set for a run. Precedence (highest wins):
+// explicit options.adapters > config-declared BridgeConfig.adapters > built-in
+// defaultAdapters. This is the single choke point where user-config CLIs
+// (added via config only, no rebuild) become reachable by provider name.
+function resolveAdapters(options: RunAgentOptions): Record<string, AdapterEntry> {
+  const configAdapters = options.config?.adapters
+  if (!configAdapters) return options.adapters || defaultAdapters
+
+  const fromConfig: Record<string, AdapterEntry> = {}
+  for (const [name, raw] of Object.entries(configAdapters)) {
+    fromConfig[name] = createConfigAdapter(validateCliAdapterConfig(name, raw))
+  }
+
+  return { ...defaultAdapters, ...fromConfig, ...(options.adapters || {}) }
+}
+
 export async function runAgent(input: AgentInput, options: RunAgentOptions = {}): Promise<Envelope> {
   const startedAt = Date.now()
-  const adapters: Record<string, AdapterEntry> = options.adapters || defaultAdapters
 
   // Minimal request so the catch can always build a normalized envelope, even
   // if route selection itself fails before the full request is assembled.
@@ -66,6 +83,9 @@ export async function runAgent(input: AgentInput, options: RunAgentOptions = {})
   let attempts = 1
 
   try {
+    // Resolved (and validated) inside the try so a malformed config.adapters
+    // entry produces a normal error envelope instead of a thrown rejection.
+    const adapters: Record<string, AdapterEntry> = resolveAdapters(options)
     const route = await selectRouteOrAvailableProvider(options.config || {}, input, adapters)
     const agent = options.loadAgent === false
       ? null
@@ -75,7 +95,7 @@ export async function runAgent(input: AgentInput, options: RunAgentOptions = {})
       ...input,
       runId: request.runId,
       provider: route.provider,
-      model: route.model || input.model,
+      model: route.useModel || input.model,
       sandbox: route.sandbox || input.sandbox,
       timeoutMs: route.timeoutMs || input.timeoutMs || DEFAULT_TIMEOUT_MS,
       maxRetries: route.maxRetries ?? input.maxRetries ?? 0,
