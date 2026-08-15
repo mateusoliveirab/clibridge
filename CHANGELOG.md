@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0](https://github.com/mateusoliveirab/clibridge/compare/v1.1.0...v1.2.0) (2026-08-15)
+
+
+### Features
+
+* add governed local console and provider routing ([0c8b7f7](https://github.com/mateusoliveirab/clibridge/commit/0c8b7f73e50a1d845cc774fd4e8d8ca24c7230f8))
+* **workflows:** add governed local publication support ([a4c82f4](https://github.com/mateusoliveirab/clibridge/commit/a4c82f4cef0dda745de17708524a3446547f0f03))
+
+
+### Bug Fixes
+
+* **broker:** enforce read-only guarantee end-to-end ([3960c32](https://github.com/mateusoliveirab/clibridge/commit/3960c324a0f09894cb51654b0636dff7a32d5e54))
+* govern maintainer component review workflows ([#13](https://github.com/mateusoliveirab/clibridge/issues/13)) ([7699288](https://github.com/mateusoliveirab/clibridge/commit/7699288e00dc68a2aae42e43855581b06e2b0abe))
+* **security:** refresh vulnerable runtime dependencies ([#14](https://github.com/mateusoliveirab/clibridge/issues/14)) ([4c46412](https://github.com/mateusoliveirab/clibridge/commit/4c464127a73188aadb17a5159c31ddaf1957c9ef))
+
 ## [1.1.0](https://github.com/mateusoliveirab/clibridge/compare/v1.0.0...v1.1.0) (2026-07-11)
 
 
