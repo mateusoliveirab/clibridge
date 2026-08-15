@@ -54,17 +54,23 @@ const ExecutionPolicyFields = {
 
 const PhaseSchema = z.object({
   name: z.string(),
-  kind: z.enum(['agent', 'shell', 'read-files', 'policy']).default('agent'),
+  kind: z.enum(['agent', 'shell', 'read-files', 'policy', 'write-file']).default('agent'),
   role: z.string().optional(),
   demand: z.unknown().optional(),
   provider: z.string().optional(),
   agentType: z.string().optional(),
   prompt: z.string().optional(),
   mockText: z.string().optional(),
+  mockData: z.unknown().optional(),
   schema: z.unknown().optional(),
   command: z.string().optional(),
   commands: z.array(z.string()).optional(),
+  runInDryRun: z.boolean().optional(),
   files: z.array(z.string()).optional(),
+  file: z.string().optional(),
+  sourceResult: z.string().optional(),
+  sourceField: z.string().optional(),
+  disableFallback: z.boolean().optional(),
   maxBytes: z.number().int().positive().optional(),
   skipPermissions: z.boolean().optional(),
   ...ExecutionPolicyFields,
@@ -76,6 +82,7 @@ const WorkflowFileSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
   contractFormat: z.enum(['json', 'toon']).optional(),
+  disableFallback: z.boolean().optional(),
   ...ExecutionPolicyFields,
   inputDefaults: z.record(z.string(), z.unknown()).default({}),
   phases: z.array(PhaseSchema),
@@ -135,6 +142,7 @@ export async function runWorkflow(
   const inputs = { ...workflow.inputDefaults, ...input.inputs }
   const phaseResults: WorkflowPhaseResult[] = []
   const results: Record<string, string> = {}
+  const runsDir = path.join(input.cwd, '.bridge-runs')
   const config = input.routeConfigPath
     ? await loadJsonConfig(input.routeConfigPath)
     : (options.config || {})
@@ -144,6 +152,7 @@ export async function runWorkflow(
     workflow: workflow.name,
     description: input.task,
     phases: workflow.phases.map(phase => phase.name),
+    runsDir,
   })
 
   try {
@@ -155,7 +164,7 @@ export async function runWorkflow(
         : undefined
       const providerLabel = provider || 'local'
       const startedAt = Date.now()
-      phaseStart(runId, phaseName, index, providerLabel)
+      phaseStart(runId, phaseName, index, providerLabel, { runsDir })
       const policy = resolveExecutionPolicy(workflow, phase)
       let before: MutationSnapshot | null = null
 
@@ -176,7 +185,7 @@ export async function runWorkflow(
         assertMutationPolicy(input.cwd, policy, before)
         const durationMs = Date.now() - startedAt
         results[phaseName] = text
-        phaseEnd(runId, phaseName, true, durationMs)
+        phaseEnd(runId, phaseName, true, durationMs, { runsDir })
         phaseResults.push({
           name: phaseName,
           kind: phase.kind,
@@ -193,7 +202,7 @@ export async function runWorkflow(
         } catch (policyError) {
           message = `${(policyError as Error).message}\nOriginal phase error: ${message}`
         }
-        phaseEnd(runId, phaseName, false, durationMs)
+        phaseEnd(runId, phaseName, false, durationMs, { runsDir })
         phaseResults.push({
           name: phaseName,
           kind: phase.kind,
@@ -203,7 +212,7 @@ export async function runWorkflow(
           text: '',
           error: message,
         })
-        endRun(runId, false)
+        endRun(runId, false, { runsDir })
         return {
           ok: false,
           runId,
@@ -216,7 +225,7 @@ export async function runWorkflow(
       }
     }
 
-    endRun(runId, true)
+    endRun(runId, true, { runsDir })
     return {
       ok: true,
       runId,
@@ -226,7 +235,7 @@ export async function runWorkflow(
       finalText: latestResult(results),
     }
   } catch (error) {
-    endRun(runId, false)
+    endRun(runId, false, { runsDir })
     return {
       ok: false,
       runId,
@@ -271,6 +280,7 @@ async function executePhase(
   if (phase.kind === 'read-files') return readFilesPhase(phase, context.input.cwd)
   if (phase.kind === 'policy') return policyPhase(phase, context.inputs)
   if (phase.kind === 'shell') return shellPhase(phase, context)
+  if (phase.kind === 'write-file') return writeFilePhase(phase, context)
   return agentPhase(phase, context)
 }
 
@@ -336,7 +346,7 @@ function shellPhase(
       results: context.results,
     })
 
-    if (context.input.dryRun) {
+    if (context.input.dryRun && !phase.runInDryRun) {
       outputs.push(`[dry-run] ${renderedCommand}`)
       continue
     }
@@ -354,6 +364,111 @@ function shellPhase(
     }
   }
   return outputs.join('\n\n')
+}
+
+function writeFilePhase(
+  phase: WorkflowPhase,
+  context: {
+    input: RunWorkflowInput
+    policy: ExecutionPolicy
+    inputs: Record<string, unknown>
+    results: Record<string, string>
+  },
+): string {
+  if (context.policy.access !== 'workspace-write' && context.policy.access !== 'unrestricted') {
+    throw new Error(`write-file phase '${phase.name}' requires workspace-write access.`)
+  }
+  if (!phase.file) throw new Error(`write-file phase '${phase.name}' needs a file.`)
+  if (!phase.sourceResult) throw new Error(`write-file phase '${phase.name}' needs sourceResult.`)
+
+  const renderedFile = renderTemplate(phase.file, {
+    cwd: context.input.cwd,
+    inputs: context.inputs,
+    results: context.results,
+  })
+  if (!renderedFile || path.isAbsolute(renderedFile)) {
+    throw new Error(`write-file phase '${phase.name}' requires a relative file path.`)
+  }
+
+  const target = path.resolve(context.input.cwd, renderedFile)
+  const relativeTarget = normalizeRepoPath(path.relative(context.input.cwd, target))
+  if (!relativeTarget || relativeTarget === '..' || relativeTarget.startsWith('../')) {
+    throw new Error(`write-file phase '${phase.name}' cannot write outside cwd: ${renderedFile}`)
+  }
+  if (!isRealPathInsideCwd(context.input.cwd, target)) {
+    throw new Error(`write-file phase '${phase.name}' cannot write outside cwd: ${renderedFile}`)
+  }
+  if (
+    context.policy.allowedWritePaths.length &&
+    !matchesAnyAllowedPath(relativeTarget, context.policy.allowedWritePaths)
+  ) {
+    throw new Error(
+      `write-file phase '${phase.name}' is outside allowedWritePaths: ${relativeTarget}`
+    )
+  }
+
+  const rawSource = context.results[phase.sourceResult]
+  if (rawSource === undefined) {
+    throw new Error(`write-file phase '${phase.name}' cannot find result '${phase.sourceResult}'.`)
+  }
+  let content = rawSource
+  if (phase.sourceField) {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(rawSource)
+    } catch {
+      throw new Error(`write-file phase '${phase.name}' needs JSON in result '${phase.sourceResult}'.`)
+    }
+    const selected = getPath(
+      parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : {},
+      phase.sourceField,
+    )
+    if (typeof selected !== 'string') {
+      throw new Error(
+        `write-file phase '${phase.name}' expected string field '${phase.sourceField}' in '${phase.sourceResult}'.`
+      )
+    }
+    content = selected
+  }
+
+  if (context.input.dryRun) {
+    return `[dry-run] would write ${relativeTarget} (${Buffer.byteLength(content, 'utf8')} bytes)`
+  }
+
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  fs.writeFileSync(target, content.endsWith('\n') ? content : `${content}\n`, 'utf8')
+  return `Wrote ${relativeTarget} (${Buffer.byteLength(content, 'utf8')} bytes)`
+}
+
+function isRealPathInsideCwd(cwd: string, target: string): boolean {
+  try {
+    const realCwd = fs.realpathSync(cwd)
+    let existing = target
+    while (!pathEntryExists(existing)) {
+      const parent = path.dirname(existing)
+      if (parent === existing) return false
+      existing = parent
+    }
+
+    const realExisting = fs.realpathSync(existing)
+    const unresolvedSuffix = path.relative(existing, target)
+    const realTarget = path.resolve(realExisting, unresolvedSuffix)
+    const relativeTarget = path.relative(realCwd, realTarget)
+    return relativeTarget !== '..'
+      && !relativeTarget.startsWith(`..${path.sep}`)
+      && !path.isAbsolute(relativeTarget)
+  } catch {
+    return false
+  }
+}
+
+function pathEntryExists(filePath: string): boolean {
+  try {
+    fs.lstatSync(filePath)
+    return true
+  } catch {
+    return false
+  }
 }
 
 async function agentPhase(
@@ -387,10 +502,12 @@ async function agentPhase(
     provider: phase.provider || context.provider || (context.input.dryRun ? 'agy' : undefined),
     agentType: phase.agentType,
     schema: phase.schema,
+    mockData: phase.mockData,
     access: context.policy.access,
     timeoutMs: context.input.timeoutMs,
     dryRun: context.input.dryRun,
     mockText: phase.mockText || `[dry-run ${phase.name}]`,
+    disableFallback: phase.disableFallback ?? context.workflow.disableFallback,
     dangerouslySkipPermissions: phase.skipPermissions || context.input.dangerouslySkipPermissions,
   }, {
     config: context.config,

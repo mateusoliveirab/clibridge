@@ -12,13 +12,16 @@ export const runOpenCode: AdapterFn = async (request: ResolvedRequest, runProces
     args.push('--add-dir', dirPath)
   }
 
+  if (request.dangerouslySkipPermissions) args.push('--dangerously-skip-permissions')
+
+  // OpenCode's variadic positional `message` parser consumes values after a
+  // repeated `--file` flag. Put the prompt first, then append attachments so
+  // the prompt is not misread as a second file path.
+  args.push(request.prompt)
+
   for (const attachment of request.attachments || []) {
     args.push('--file', attachment.path)
   }
-
-  if (request.dangerouslySkipPermissions) args.push('--dangerously-skip-permissions')
-
-  args.push(request.prompt)
 
   const processResult = await runProcessFn('opencode', args, {
     cwd: request.cwd,

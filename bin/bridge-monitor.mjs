@@ -6,6 +6,7 @@
 //   node --import tsx bin/bridge-monitor.mjs --once     # single frame, then exit
 //   node --import tsx bin/bridge-monitor.mjs --run <id> # focus one run
 //   node --import tsx bin/bridge-monitor.mjs --all      # disable the 20-run cap
+//   node --import tsx bin/bridge-monitor.mjs --cwd <dir> # monitor a target Store
 import fs from 'node:fs'
 import path from 'node:path'
 import { readRun } from '../dist/workflows/run-state.js'
@@ -16,6 +17,10 @@ const showAll = args.includes('--all')
 const runFilter = (() => {
   const i = args.indexOf('--run')
   return i >= 0 ? args[i + 1] : null
+})()
+const cwdArg = (() => {
+  const i = args.indexOf('--cwd')
+  return i >= 0 ? args[i + 1] : process.cwd()
 })()
 const intervalArg = (() => {
   const i = args.indexOf('--interval')
@@ -39,7 +44,7 @@ const RUN_CAP = 20
 // readRun() fully parses a run's .jsonl every call. Re-reading every file on
 // every frame is wasteful once history grows, so we cache parsed state per
 // runId keyed by the file's mtimeMs and only re-read files that changed.
-const runsDir = path.join(process.cwd(), '.bridge-runs')
+const runsDir = path.join(path.resolve(cwdArg), '.bridge-runs')
 const stateCache = new Map()
 
 function scanRuns() {
@@ -66,7 +71,7 @@ function scanRuns() {
       states.push(cached.state)
       continue
     }
-    const state = readRun(runId)
+    const state = readRun(runId, { runsDir })
     if (state) {
       stateCache.set(runId, { mtimeMs, state })
       states.push(state)
@@ -162,7 +167,7 @@ function buildFrame(tick) {
   if (runFilter) {
     out.push(bold(cyan(`clibridge run · ${runFilter}`)))
     out.push('')
-    const state = readRun(runFilter)
+    const state = readRun(runFilter, { runsDir })
     if (!state) {
       out.push(dim(`  run "${runFilter}" not found`))
     } else {

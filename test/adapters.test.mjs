@@ -43,6 +43,27 @@ test('parseOpenCodeOutput falls back to raw stdout when no text event', () => {
   assert.equal(text, 'plain non-json line')
 })
 
+test('runOpenCode places the prompt before repeated file attachments', async () => {
+  let capturedArgs
+  const mockRunProcess = async (_cmd, args) => {
+    capturedArgs = args
+    return { stdout: JSON.stringify({ type: 'text', part: { text: 'OK' } }), stderr: '', durationMs: 5 }
+  }
+
+  await runOpenCode({
+    prompt: 'describe the image',
+    cwd: '/workspace/dir',
+    model: 'google/gemini-2.5-flash',
+    attachments: [
+      { type: 'image', path: '/tmp/frame-1.jpg' },
+      { type: 'image', path: '/tmp/frame-2.jpg' },
+    ],
+  }, mockRunProcess)
+
+  assert.equal(capturedArgs[capturedArgs.indexOf('describe the image') + 1], '--file')
+  assert.equal(capturedArgs[capturedArgs.indexOf('--file') + 1], '/tmp/frame-1.jpg')
+})
+
 test('agyAdapter declares no structured-output capability', () => {
   // Schema rejection is enforced by the broker against this declaration
   // (see run-agent.test.mjs), not by a check inside the adapter itself.
@@ -296,11 +317,9 @@ test('runOpenCode builds correct arguments with dangerouslySkipPermissions and a
     '/workspace/dir',
     '--format',
     'json',
-    '--file',
-    '/path/to/file.txt',
     '--dangerously-skip-permissions',
-    'hello'
+    'hello',
+    '--file',
+    '/path/to/file.txt'
   ])
 })
-
-
