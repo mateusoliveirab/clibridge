@@ -585,6 +585,34 @@ test('runAgent applies a route useModel override, ignoring request.model', async
   assert.equal(seenRequest.model, 'forced-model')
 })
 
+test('runAgent forwards a route reasoning effort override', async () => {
+  let seenRequest
+  const result = await runAgent({
+    workflow: 'w',
+    phase: 'Review',
+    label: 'review:1',
+    cwd,
+    prompt: 'go',
+  }, {
+    loadAgent: false,
+    config: {
+      defaultProvider: 'mock',
+      routes: [
+        { phase: 'Review', provider: 'mock', reasoningEffort: 'high' },
+      ],
+    },
+    adapters: {
+      mock: async (request) => {
+        seenRequest = request
+        return successEnvelope(request)
+      },
+    },
+  })
+
+  assert.equal(result.ok, true)
+  assert.equal(seenRequest.reasoningEffort, 'high')
+})
+
 test('selectRoute match-on-model still works when the route has no useModel override', async () => {
   let seenRequest
   const result = await runAgent({

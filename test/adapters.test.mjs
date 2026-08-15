@@ -196,6 +196,41 @@ test('runCodex builds correct arguments with addDir and addDirs', async () => {
   assert.equal(capturedArgs[capturedArgs.length - 1], 'hello')
 })
 
+test('runCodex disables interactive approvals only for read-only sandboxed runs', async () => {
+  let capturedArgs
+  const mockRunProcess = async (_cmd, args) => {
+    capturedArgs = args
+    return { stdout: 'OK', stderr: '', durationMs: 5 }
+  }
+
+  await runCodex({
+    prompt: 'inspect without editing',
+    cwd: '/workspace/dir',
+    access: 'read-only',
+    sandbox: 'read-only',
+    reasoningEffort: 'high',
+  }, mockRunProcess)
+  assert.deepEqual(capturedArgs.slice(0, 5), [
+    '--config',
+    'model_reasoning_effort=high',
+    '--ask-for-approval',
+    'never',
+    'exec',
+  ])
+  assert.deepEqual(capturedArgs.slice(capturedArgs.indexOf('--ask-for-approval'), capturedArgs.indexOf('--ask-for-approval') + 2), [
+    '--ask-for-approval',
+    'never',
+  ])
+
+  await runCodex({
+    prompt: 'prepare a bounded change',
+    cwd: '/workspace/dir',
+    access: 'workspace-write',
+    sandbox: 'workspace-write',
+  }, mockRunProcess)
+  assert.equal(capturedArgs.includes('--ask-for-approval'), false)
+})
+
 test('runClaude builds correct arguments with addDir and addDirs', async () => {
   let capturedArgs
   const mockRunProcess = async (cmd, args, options) => {

@@ -78,3 +78,54 @@ test('runWorkflowThroughDaemon rejects a workflow path outside the project direc
     fs.rmSync(cwd, { recursive: true, force: true })
   }
 })
+
+test('runWorkflowThroughDaemon rejects a route config outside the project directory', async () => {
+  const cwd = project()
+  const outside = project()
+  try {
+    fs.writeFileSync(path.join(cwd, 'safe.workflow.json'), JSON.stringify({
+      name: 'safe',
+      phases: [{ name: 'inspect', kind: 'shell', command: 'echo hello' }],
+    }))
+    fs.writeFileSync(path.join(outside, 'routes.json'), JSON.stringify({ defaultProvider: 'codex' }))
+
+    await assert.rejects(
+      () => runWorkflowThroughDaemon({
+        workflowPath: 'safe.workflow.json',
+        routeConfigPath: path.join(outside, 'routes.json'),
+        cwd,
+        task: 'reject external route config',
+      }),
+      /Route config path is outside the project directory/,
+    )
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true })
+    fs.rmSync(outside, { recursive: true, force: true })
+  }
+})
+
+test('runWorkflowThroughDaemon rejects a route config symlink that resolves outside the project', async () => {
+  const cwd = project()
+  const outside = project()
+  try {
+    fs.writeFileSync(path.join(cwd, 'safe.workflow.json'), JSON.stringify({
+      name: 'safe',
+      phases: [{ name: 'inspect', kind: 'shell', command: 'echo hello' }],
+    }))
+    fs.writeFileSync(path.join(outside, 'routes.json'), JSON.stringify({ defaultProvider: 'codex' }))
+    fs.symlinkSync(path.join(outside, 'routes.json'), path.join(cwd, 'routes.json'))
+
+    await assert.rejects(
+      () => runWorkflowThroughDaemon({
+        workflowPath: 'safe.workflow.json',
+        routeConfigPath: 'routes.json',
+        cwd,
+        task: 'reject symlinked route config',
+      }),
+      /Route config path resolves outside the project directory/,
+    )
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true })
+    fs.rmSync(outside, { recursive: true, force: true })
+  }
+})

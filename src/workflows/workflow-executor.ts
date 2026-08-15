@@ -10,7 +10,7 @@ import { loadJsonConfig } from '../config/load-config.ts'
 import { loadStructuredDataFileSync } from '../config/structured-data.ts'
 import { startRun, phaseStart, phaseEnd, endRun } from './run-state.ts'
 import { resolveRole } from './roles.ts'
-import { AccessModeSchema } from '../types.ts'
+import { AccessModeSchema, ReasoningEffortSchema } from '../types.ts'
 import type { AccessMode, BridgeConfig, Envelope } from '../types.ts'
 import type { AdapterEntry } from '../adapters/contract.ts'
 import type { RoleDemand } from './workflow-types.ts'
@@ -60,6 +60,7 @@ const PhaseSchema = z.object({
   demand: z.unknown().optional(),
   provider: z.string().optional(),
   agentType: z.string().optional(),
+  reasoningEffort: ReasoningEffortSchema.optional(),
   prompt: z.string().optional(),
   mockText: z.string().optional(),
   mockData: z.unknown().optional(),
@@ -538,6 +539,7 @@ async function agentPhase(
     attachments: [],
     provider: phase.provider || context.provider || (context.input.dryRun ? 'agy' : undefined),
     agentType: phase.agentType,
+    reasoningEffort: phase.reasoningEffort,
     schema: phase.schema,
     mockData: phase.mockData,
     access: context.policy.access,

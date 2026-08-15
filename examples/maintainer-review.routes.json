@@ -1,0 +1,17 @@
+{
+  "defaultProvider": "codex",
+  "rolePreferences": {
+    "strength": ["codex", "claude", "gemini", "opencode", "agy", "ollama"],
+    "cost": ["ollama", "gemini", "opencode", "agy", "codex", "claude"]
+  },
+  "routes": [
+    { "phase": "review-adapters-broker", "provider": "codex", "reasoningEffort": "high", "sandbox": "read-only", "timeoutMs": 240000 },
+    { "phase": "review-daemon-dashboard", "provider": "codex", "reasoningEffort": "high", "sandbox": "read-only", "timeoutMs": 240000 },
+    { "phase": "review-workflows-tooling", "provider": "codex", "reasoningEffort": "high", "sandbox": "read-only", "timeoutMs": 240000 },
+    { "phase": "review-contribution-release", "provider": "codex", "reasoningEffort": "high", "sandbox": "read-only", "timeoutMs": 240000 },
+    { "phase": "synthesis", "provider": "codex", "reasoningEffort": "high", "sandbox": "read-only", "timeoutMs": 240000 },
+    { "phase": "validation-plan", "provider": "codex", "reasoningEffort": "high", "sandbox": "read-only", "timeoutMs": 180000 },
+    { "phase": "review", "provider": "codex", "reasoningEffort": "high", "sandbox": "read-only", "timeoutMs": 240000 },
+    { "phase": "improvement-plan", "provider": "codex", "reasoningEffort": "high", "sandbox": "read-only", "timeoutMs": 180000 }
+  ]
+}

@@ -6,6 +6,7 @@ import { z } from 'zod'
 import type { CliAdapterConfig } from './adapters/config-types.ts'
 
 export const AccessModeSchema = z.enum(['read-only', 'workspace-write', 'unrestricted'])
+export const ReasoningEffortSchema = z.enum(['none', 'low', 'medium', 'high', 'xhigh', 'max'])
 
 export const AttachmentSchema = z.object({
   type: z.string(),
@@ -27,6 +28,7 @@ export const AgentInputSchema = z.object({
   attachments: z.array(AttachmentSchema).default([]),
   sandbox: z.string().optional(),
   timeoutMs: z.number().int().positive().optional(),
+  reasoningEffort: ReasoningEffortSchema.optional(),
   maxRetries: z.number().int().min(0).optional(),
   dryRun: z.boolean().optional(),
   mockData: z.any().optional(),
@@ -62,6 +64,7 @@ export interface Route {
   timeoutMs?: number
   maxRetries?: number
   envAllowlist?: string[]
+  reasoningEffort?: z.infer<typeof ReasoningEffortSchema>
 }
 
 export interface BridgeConfig {

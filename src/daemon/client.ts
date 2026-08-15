@@ -27,10 +27,10 @@ export async function runWorkflowThroughDaemon(input: RunWorkflowInput, options:
   // an HTTP job, so its response contract remains unchanged. Apply the same
   // cwd/path validation the HTTP path (startWorkflow) enforces, so this
   // in-process entrypoint can't bypass it.
-  const { cwd, workflowPath } = daemon.validateWorkflowRequest(input)
+  const { cwd, workflowPath, routeConfigPath } = daemon.validateWorkflowRequest(input)
   const runId = randomUUID()
   await daemon.ledger.createRun({ id: runId, workflow: input.workflowPath.split('/').pop() || 'workflow', cwd, task: input.task })
-  return daemon.execute({ ...input, cwd, workflowPath, runId }, options)
+  return daemon.execute({ ...input, cwd, workflowPath, routeConfigPath, runId }, options)
 }
 
 export async function runAgentThroughDaemon(input: AgentInput, options: { adapters?: Record<string, AdapterEntry>; config?: BridgeConfig; dangerouslySkipPermissions?: boolean } = {}): Promise<Envelope> {

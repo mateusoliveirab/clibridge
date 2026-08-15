@@ -319,12 +319,17 @@ Create a `route-config.json` at your repository root to govern automatic tool ex
   "defaultProvider": "opencode",
   "routes": [
     { "phase": "Extract", "provider": "codex" },
-    { "phase": "Generate", "provider": "opencode" }
+    { "phase": "Generate", "provider": "opencode" },
+    { "phase": "Review", "provider": "codex", "reasoningEffort": "high" }
   ]
 }
 ```
 
 *If no route configuration matches, the broker will auto-select a provider only if exactly one available CLI satisfies the requested capabilities.*
+
+`reasoningEffort` is an optional routing hint for providers that expose a
+reasoning control. Codex maps it to `model_reasoning_effort` without changing
+the user's global Codex configuration.
 
 `routeConfigPath` also accepts `.toon` files. TOON is decoded at the file boundary and then validated as the same internal JSON-compatible object model; MCP responses and JSON Schema payloads remain JSON.
 

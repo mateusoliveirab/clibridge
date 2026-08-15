@@ -96,6 +96,7 @@ export async function runAgent(input: AgentInput, options: RunAgentOptions = {})
       runId: request.runId,
       provider: route.provider,
       model: route.useModel || input.model,
+      reasoningEffort: route.reasoningEffort || input.reasoningEffort,
       sandbox: route.sandbox || input.sandbox,
       timeoutMs: route.timeoutMs || input.timeoutMs || DEFAULT_TIMEOUT_MS,
       maxRetries: route.maxRetries ?? input.maxRetries ?? 0,

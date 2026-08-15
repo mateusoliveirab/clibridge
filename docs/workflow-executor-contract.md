@@ -48,6 +48,12 @@ The executor loads `workflowPath`, runs phases in order, records run-state under
 
 `timeoutMs` is optional and is forwarded to each delegated `run_agent` call. It is useful for live validation workflows that exercise multiple real provider CLIs.
 
+`reasoningEffort` is an optional provider-routing hint (`none`, `low`, `medium`,
+`high`, `xhigh`, or `max`). The Codex adapter maps it to its native
+`model_reasoning_effort` setting; other adapters may ignore it. Keep this hint
+in a route or workflow when a non-interactive provider run must be bounded
+without changing the user's global CLI configuration.
+
 An agent phase may set `mockText` or `mockData` for `dryRun` execution. `mockData` is passed to the broker as the dry-run structured result and is validated against the phase `schema`, allowing schema-bearing workflows to test their complete control flow without invoking a provider CLI.
 
 `dangerouslySkipPermissions` is optional and requests unattended permission skipping for providers that support it. The CLI exposes this as `--dangerously-skip-permissions`. A workflow or phase must also set `allowDangerousPermissions: true`; otherwise the executor rejects the phase before dispatching a provider.
@@ -73,6 +79,11 @@ Workflow and phase objects may declare execution policy fields:
 Top-level policy applies to all phases and phase-level policy overrides it. The executor snapshots Git status before and after audited phases. It does not automatically revert files; on violation it fails the phase and reports the changed paths so the caller can decide how to recover without clobbering unrelated local work.
 
 For read-only agent phases, providers that support sandboxing receive a read-only sandbox request automatically. Providers without sandbox support are still audited by the Git snapshot guard.
+
+When a workflow runs through the local daemon, both `workflowPath` and
+`routeConfigPath` must resolve inside the daemon's project directory. Lexical
+and symlink escapes are rejected before configuration or workflow content is
+loaded.
 
 ## Workflow File Shape
 

@@ -8,7 +8,16 @@ export const runCodex: AdapterFn = async (request: ResolvedRequest, runProcessFn
   return await withTempDir(async (dir) => {
     const schemaPath = await writeSchemaFile(dir, request.schema)
     const outputPath = join(dir, 'last-message.txt')
-    const args = ['exec', '--cd', request.cwd, '--skip-git-repo-check', '--output-last-message', outputPath]
+    const args: string[] = []
+
+    // A read-only workflow is already constrained by Codex's read-only
+    // sandbox. In a non-interactive bridge run, leave no approval prompt
+    // waiting on a human; this does not weaken the sandbox or grant writes.
+    // Codex treats this particular option as global, so it must precede the
+    // `exec` subcommand (other execution flags are accepted after it).
+    if (request.reasoningEffort) args.push('--config', `model_reasoning_effort=${request.reasoningEffort}`)
+    if (request.access === 'read-only') args.push('--ask-for-approval', 'never')
+    args.push('exec', '--cd', request.cwd, '--skip-git-repo-check', '--output-last-message', outputPath)
 
     if (request.sandbox) args.push('--sandbox', request.sandbox)
     if (schemaPath) args.push('--output-schema', schemaPath)

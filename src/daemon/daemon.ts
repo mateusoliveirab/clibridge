@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
+import fs from 'node:fs'
 import path from 'node:path'
 import { runWorkflow, type RunWorkflowInput, type WorkflowRunObserver, type WorkflowRunResult } from '../workflows/workflow-executor.ts'
 import type { AdapterEntry } from '../adapters/contract.ts'
@@ -45,23 +46,29 @@ export class LocalDaemon {
    * request: cwd must match the daemon's project, and the resolved workflow
    * path must stay inside it. Used by both the HTTP path and the in-process
    * (MCP) path so neither can bypass the other's guardrails. */
-  validateWorkflowRequest(raw: { cwd?: string; workflowPath: string }): { cwd: string; workflowPath: string } {
+  validateWorkflowRequest(raw: { cwd?: string; workflowPath: string; routeConfigPath?: string }): { cwd: string; workflowPath: string; routeConfigPath?: string } {
     const cwd = path.resolve(raw.cwd || this.cwd)
     if (cwd !== this.cwd) throw new Error('This daemon is scoped to its project directory.')
-    const workflowPath = path.resolve(cwd, raw.workflowPath)
-    if (!workflowPath.startsWith(`${cwd}${path.sep}`)) throw new Error('Workflow path is outside the project directory.')
-    return { cwd, workflowPath }
+    const workflowPath = validateProjectFilePath(cwd, raw.workflowPath, 'Workflow path')
+    const routeConfigPath = raw.routeConfigPath
+      ? validateProjectFilePath(cwd, raw.routeConfigPath, 'Route config path')
+      : undefined
+    return { cwd, workflowPath, routeConfigPath }
+  }
+
+  validateRouteConfigPath(routeConfigPath: string): string {
+    return validateProjectFilePath(this.cwd, routeConfigPath, 'Route config path')
   }
 
   async startWorkflow(raw: Omit<RunWorkflowInput, 'runId' | 'cwd'> & { cwd?: string }, options: DaemonExecuteOptions = {}): Promise<{ runId: string }> {
     const runId = randomUUID()
-    const { cwd, workflowPath } = this.validateWorkflowRequest(raw)
+    const { cwd, workflowPath, routeConfigPath } = this.validateWorkflowRequest(raw)
     const workflow = workflowNameFromPath(raw.workflowPath)
     await this.ledger.createRun({ id: runId, workflow, cwd, task: raw.task })
     this.publish(await this.ledger.event(runId, 'run.accepted', {}))
     // Fire-and-forget: execute() already records failures to the ledger, so
     // swallow the rejection here purely to avoid an unhandled rejection.
-    this.execute({ ...raw, workflowPath, cwd, runId }, options).catch(() => {})
+    this.execute({ ...raw, workflowPath, routeConfigPath, cwd, runId }, options).catch(() => {})
     return { runId }
   }
 
@@ -175,6 +182,32 @@ export class LocalDaemon {
 
 function workflowNameFromPath(workflowPath: string): string {
   return path.basename(workflowPath).replace(/\.(workflow\.)?(json|toon)$/i, '')
+}
+
+function validateProjectFilePath(cwd: string, candidate: string, label: string): string {
+  const target = path.resolve(cwd, candidate)
+  if (target === cwd || !target.startsWith(`${cwd}${path.sep}`)) {
+    throw new Error(`${label} is outside the project directory.`)
+  }
+
+  // Lexical containment is insufficient when a workflow or route config is a
+  // symlink into another project. Resolve the nearest existing ancestor so
+  // missing files are still checked against the real project boundary.
+  let existing = target
+  while (!fs.existsSync(existing)) {
+    const parent = path.dirname(existing)
+    if (parent === existing) throw new Error(`${label} is outside the project directory.`)
+    existing = parent
+  }
+  const realCwd = fs.realpathSync(cwd)
+  const realExisting = fs.realpathSync(existing)
+  const unresolvedSuffix = path.relative(existing, target)
+  const realTarget = path.resolve(realExisting, unresolvedSuffix)
+  const relativeTarget = path.relative(realCwd, realTarget)
+  if (relativeTarget === '..' || relativeTarget.startsWith(`..${path.sep}`) || path.isAbsolute(relativeTarget)) {
+    throw new Error(`${label} resolves outside the project directory.`)
+  }
+  return target
 }
 
 function assessRisk(event: Parameters<NonNullable<WorkflowRunObserver['beforePhase']>>[0]): { action: string; reason: string; scope?: string; impact: string } | null {
