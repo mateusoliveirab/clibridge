@@ -28,7 +28,7 @@
     "bridge-monitor": "./bin/bridge-monitor.mjs"
   },
   "scripts": {
-    "build": "esbuild src/mcp-server.ts src/workflows/workflow-executor.ts src/daemon/serve.ts src/daemon/ledger.ts src/daemon/client.ts --bundle --platform=node --format=esm --outdir=dist --packages=external && vite build && mkdir -p dist/workflows && cp src/workflows/workflows-config.json dist/workflows/workflows-config.json",
+    "build": "esbuild src/mcp-server.ts src/workflows/workflow-executor.ts src/workflows/run-state.ts src/daemon/serve.ts src/daemon/ledger.ts src/daemon/client.ts --bundle --platform=node --format=esm --outdir=dist --packages=external && vite build && mkdir -p dist/workflows && cp src/workflows/workflows-config.json dist/workflows/workflows-config.json",
     "prepare": "npm run build",
     "check": "npm run ci",
     "check:environment": "node --version && npm --version",
